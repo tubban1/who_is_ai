@@ -108,8 +108,31 @@ export default function App(){
         }
       } catch(e) {}
     };
+    es.onerror = () => {
+      // If mobile connection drops or screen sleeps, reconnect
+      setTimeout(() => {
+        if (!started) return;
+        post('/api/session', { uuid, displayName: nickname, language }).catch(() => {});
+      }, 1000);
+    };
     return()=>es.close();
-  },[started,uuid]);
+  },[started,uuid,nickname,language]);
+
+  // Handle mobile screen wake-up / tab visibility change
+  useEffect(() => {
+    if (!started) return;
+    const onWake = () => {
+      if (document.visibilityState === 'visible') {
+        post('/api/session', { uuid, displayName: nickname, language }).catch(() => {});
+      }
+    };
+    window.addEventListener('visibilitychange', onWake);
+    window.addEventListener('focus', onWake);
+    return () => {
+      window.removeEventListener('visibilitychange', onWake);
+      window.removeEventListener('focus', onWake);
+    };
+  }, [started, uuid, nickname, language]);
 
   useEffect(()=>{
     if(!started)return;
@@ -132,7 +155,18 @@ export default function App(){
     try{
       const d=await post('/api/conversation/start',{uuid,targetId:target.id});
       setConversation(d.conversation);
-    }catch(e){setError(e.message)}
+    }catch(e){
+      // If session dropped, immediately re-establish session and retry talk once
+      if (e.message?.includes('not found') || e.message?.includes('session')) {
+        try {
+          await post('/api/session', { uuid, displayName: nickname, language });
+          const d2 = await post('/api/conversation/start', { uuid, targetId: target.id });
+          setConversation(d2.conversation);
+          return;
+        } catch {}
+      }
+      setError(e.message);
+    }
   };
 
   useEffect(()=>{

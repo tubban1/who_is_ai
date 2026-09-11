@@ -42,6 +42,43 @@ function json(res,status,data){ cors(res); res.writeHead(status,{'Content-Type':
 async function body(req){ let s=''; for await (const c of req) s+=c; return s?JSON.parse(s):{}; }
 function isUuid(v){ return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v||''); }
 function sendSse(uuid,payload){ const res=sseClients.get(uuid); if(res){ res.write(`data: ${JSON.stringify(payload)}\n\n`); } }
+
+async function ensureHuman(uuid) {
+  if (!isUuid(uuid)) return null;
+  let h = humans.get(uuid);
+  if (!h) {
+    // Session timed out from in-memory map (e.g. mobile screen locked or backgrounded)
+    // Auto-restore from persistent database so player is never lost
+    try {
+      const p = await getPlayer(uuid);
+      if (p) {
+        const publicId = `h_${crypto.randomBytes(4).toString('hex')}`;
+        h = {
+          id: publicId,
+          publicId,
+          uuid,
+          displayName: p.displayName || `Guest-${uuid.slice(0, 4)}`,
+          x: 0,
+          z: -6,
+          rotation: 0,
+          status: 'available',
+          language: p.preferredLanguage || 'en',
+          lastSeen: Date.now(),
+          type: 'human'
+        };
+        humans.set(uuid, h);
+        publicToUuid.set(publicId, uuid);
+      }
+    } catch (err) {
+      console.warn('[server] ensureHuman auto-restore failed:', err.message);
+    }
+  }
+  if (h) {
+    h.lastSeen = Date.now();
+  }
+  return h;
+}
+
 function runtimeByPublicId(id){
   const ai=aiAgents.find(a=>a.id===id); if(ai) return ai;
   const uuid=publicToUuid.get(id); return uuid ? humans.get(uuid) : null;
@@ -101,7 +138,9 @@ const server=http.createServer(async(req,res)=>{
     }
 
     if(u.pathname==='/api/events' && req.method==='GET'){
-      const uuid=u.searchParams.get('uuid'); if(!isUuid(uuid)||!humans.has(uuid)) return json(res,401,{error:'session required'});
+      const uuid=u.searchParams.get('uuid'); 
+      const h=await ensureHuman(uuid);
+      if(!h) return json(res,401,{error:'session required'});
       res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive','Access-Control-Allow-Origin':'*'});
       res.write(`data: ${JSON.stringify({type:'world',...publicWorld(uuid)})}\n\n`);
       sseClients.set(uuid,res);
@@ -110,11 +149,13 @@ const server=http.createServer(async(req,res)=>{
     }
 
     if(u.pathname==='/api/world' && req.method==='GET'){
-      const uuid=u.searchParams.get('uuid'); return json(res,200,publicWorld(uuid));
+      const uuid=u.searchParams.get('uuid'); 
+      if(uuid) await ensureHuman(uuid);
+      return json(res,200,publicWorld(uuid));
     }
 
     if(u.pathname==='/api/position' && req.method==='POST'){
-      const b=await body(req); const h=humans.get(b.uuid);
+      const b=await body(req); const h=await ensureHuman(b.uuid);
       if(!h) return json(res,404,{error:'human not found'});
       h.x=Number(b.x)||0; h.z=Number(b.z)||0; h.rotation=Number(b.rotation)||0; h.lastSeen=Date.now();
       return json(res,200,{ok:true});
@@ -125,7 +166,7 @@ const server=http.createServer(async(req,res)=>{
     if(u.pathname==='/api/leaderboard/impostors' && req.method==='GET') return json(res,200,{rows:await impostorLeaderboard(100)});
 
     if(u.pathname==='/api/conversation/start' && req.method==='POST'){
-      const b=await body(req); const me=humans.get(b.uuid); const target=runtimeByPublicId(b.targetId);
+      const b=await body(req); const me=await ensureHuman(b.uuid); const target=runtimeByPublicId(b.targetId);
       if(!me||!target) return json(res,404,{error:'player not found'});
       if(target.id===me.publicId) return json(res,400,{error:'cannot talk to self'});
       if(distance(me,target)>5.5) return json(res,400,{error:'move closer to talk'});
@@ -177,7 +218,7 @@ const server=http.createServer(async(req,res)=>{
     if(u.pathname==='/api/conversation/message' && req.method==='POST'){
       const b=await body(req); const c=conversations.get(b.conversationId);
       if(!c) return json(res,404,{error:'not found'});
-      const sender=humans.get(b.uuid); if(!sender) return json(res,403,{error:'unauthorized'});
+      const sender=await ensureHuman(b.uuid); if(!sender) return json(res,403,{error:'unauthorized'});
       if(c.revealed) return json(res,409,{error:'conversation already revealed'});
       const isInitiator=c.initiatorUuid===b.uuid;
       const isHumanTarget=c.targetUuid===b.uuid;
