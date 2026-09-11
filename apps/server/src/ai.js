@@ -4,7 +4,11 @@ const mockPhrases = {
   de: ["hi", "wer bist du?", "bist du echt?", "wo sind wir hier eigentlich haha", "hä?", "laufe nur rum", "bist du ein bot?"],
   fr: ["salut", "t'es qui ?", "attends t'es un vrai joueur ?", "on est où là mdr", "??", "je me balade juste", "t'es un bot avoue"],
   es: ["hola", "¿quién eres?", "¿eres una persona real?", "jaja dónde estamos", "??", "solo dando una vuelta", "dime la verdad, ¿eres una IA?"],
-  ja: ["やっほー", "誰？", "え、本物の人間？", "ここどこ笑", "？？", "適当に歩いてるだけー", "正直に言って、AI？それとも人？"]
+  ja: ["やっほー", "誰？", "え、本物の人間？", "ここどこ笑", "？？", "適当に歩いてるだけー", "正直に言って、AI？それとも人？"],
+  ko: ["안녕", "누구세요?", "진짜 사람이에요?", "여기 어디지ㅋㅋ", "??", "그냥 구경 중", "솔직히 말해봐요, 봇이에요 사람이에요?"],
+  it: ["ciao", "chi sei?", "ma sei una persona vera?", "dove siamo lol", "??", "faccio solo un giro", "sei un bot dimmi la verità"],
+  ru: ["привет", "ты кто?", "погоди, ты реальный человек?", "где мы вообще ахах", "??", "просто гуляю", "ты бот или человек?"],
+  pt: ["olá", "quem é você?", "espera você é real?", "onde a gente tá kkk", "??", "só dando uma volta", "você é um bot? fala a verdade"]
 };
 
 const mockIcebreakers = {
@@ -50,6 +54,27 @@ const mockIcebreakers = {
     "誰ですかー？",
     "ここどこ笑",
     "お、動いてる。AI？人間？"
+  ],
+  ko: [
+    "안녕, 진짜 사람이에요?",
+    "누구세요?",
+    "여기 어디예요ㅋㅋ",
+    "오 움직인다, AI예요 사람이에요?"
+  ],
+  it: [
+    "ciao, sei una persona vera o un bot?",
+    "chi sei?",
+    "dove siamo haha"
+  ],
+  ru: [
+    "привет, ты настоящий человек или бот?",
+    "ты кто?",
+    "где мы вообще лол"
+  ],
+  pt: [
+    "olá, você é real ou um bot?",
+    "quem é você?",
+    "onde estamos kkk"
   ]
 };
 
@@ -302,7 +327,7 @@ CRITICAL RULES TO SOUND LIKE A REAL HUMAN:
 export async function generateIcebreaker(agent, observation, recipientLanguage) {
   const modelName = agent.model || process.env.AI_MODEL || 'gpt-4o-mini';
   const config = resolveModelConfig(modelName);
-  const lang = agent.nativeLanguage || recipientLanguage || 'en';
+  const lang = agent.nativeLanguage || 'en';
   if (config.isMock) {
     const arr = mockIcebreakers[lang] || mockIcebreakers.en;
     const seed = (agent.seed || 17) + Math.floor(Date.now() / 10000);
@@ -310,18 +335,30 @@ export async function generateIcebreaker(agent, observation, recipientLanguage) 
   }
   const openers = [
     "asking if the other person is a real human or an AI bot",
-    "a blunt, funny, or casual gamer greeting like '哈喽', '你谁啊', 'yo', 'sup'",
+    "a blunt, funny, or casual gamer greeting",
     "asking where this place is or how to play",
     "making a short random remark about their avatar or walking style"
   ];
   const style = openers[(agent.seed || 3) % openers.length];
 
   const system = `You are ${agent.displayName}, a real human player playing a web 3D game. You bumped into another avatar.
-Your language is ${lang}.
-Goal: Say ONE very short, completely natural opening line (${style}).
-Length: Strictly 2 to 10 words.
-NO tourist guide talk. NO poetic descriptions. Sound like a real internet player (e.g. "你是真人吗？", "哈喽你谁啊", "这里是哪？", "抓到一个，你是AI吧？", "yo you real?"). Output only the message text without quotes.`;
+Your native mother tongue is ${lang}. You MUST speak strictly in ${lang}.
+Goal: Say ONE very short, completely natural opening line in your native language (${style}).
+Length: Strictly 2 to 8 words.
+NO tourist guide talk. NO poetic descriptions. Sound like a real gamer chatting in ${lang} (e.g. if zh: "你是真人吗？", if ko: "진짜 사람이에요?", if ja: "本物の人？", if en: "yo you real?"). Output ONLY the message text without quotes.`;
 
-  const text = await callModel(config, [{ role: 'system', content: system }, { role: 'user', content: 'Say your opening message to this person.' }], 40);
-  return { text: text ? text.replace(/^["'\s]+|["'\s]+$/g, '') : (mockIcebreakers[lang] || mockIcebreakers.en)[0], language: lang };
+  let text = '';
+  try {
+    text = await callModel(config, [{ role: 'system', content: system }, { role: 'user', content: 'Say your opening message to this person.' }], 40);
+  } catch (err) {
+    console.warn(`[icebreaker] ${config.modelId} failed (${err.message}), trying fallback model...`);
+    try {
+      const fallbackConfig = resolveModelConfig(process.env.AI_MODEL || 'gpt-5.6-terra');
+      text = await callModel(fallbackConfig, [{ role: 'system', content: system }, { role: 'user', content: 'Say your opening message to this person.' }], 40);
+    } catch {}
+  }
+
+  const arr = mockIcebreakers[lang] || mockIcebreakers.en;
+  const fallback = arr[Math.abs((agent.seed || 17) + Math.floor(Date.now() / 10000)) % arr.length];
+  return { text: text ? text.replace(/^["'\s]+|["'\s]+$/g, '') : fallback, language: lang };
 }

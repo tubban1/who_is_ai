@@ -302,9 +302,10 @@ setInterval(async ()=>{
 
     let icebreaker;
     try {
-      icebreaker = await generateIcebreaker(ai, sceneObservation(ai), human.language);
+      icebreaker = await generateIcebreaker(ai, sceneObservation(ai), ai.nativeLanguage || 'en');
     } catch {
-      icebreaker = { text: human.language === 'zh' ? '嗨，你也刚逛到这边吗？' : 'Hey, nice day in the plaza!', language: ai.nativeLanguage || 'en' };
+      const lang = ai.nativeLanguage || 'en';
+      icebreaker = { text: lang === 'zh' ? '哈喽，你是真人吗？' : 'yo, are you real?', language: lang };
     }
 
     let tr = { text: icebreaker.text, translated: false };
