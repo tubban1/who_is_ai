@@ -275,8 +275,28 @@ CRITICAL RULES TO SOUND LIKE A REAL HUMAN:
   const messages = [{ role:'system', content: system }, ...history.slice(-10).map(m=>({
     role: m.senderId === agent.id ? 'assistant' : 'user', content: m.originalText
   }))];
-  const text = await callModel(config, messages, 80);
-  return { text: text ? text.replace(/^["'\s]+|["'\s]+$/g, '') : (mockPhrases[agent.nativeLanguage] || mockPhrases.en)[0], language: agent.nativeLanguage || 'en' };
+  
+  let text = '';
+  try {
+    text = await callModel(config, messages, 80);
+  } catch (err) {
+    console.warn(`[ai] ${config.modelId} failed (${err.message}), trying fallback model...`);
+    // If the assigned model times out, try the fast fallback model (gpt-5.6-terra or default)
+    try {
+      const fallbackConfig = resolveModelConfig(process.env.AI_MODEL || 'gpt-5.6-terra');
+      text = await callModel(fallbackConfig, messages, 80);
+    } catch (fallbackErr) {
+      console.warn(`[ai] fallback model also failed: ${fallbackErr.message}`);
+    }
+  }
+
+  const lang = agent.nativeLanguage || 'en';
+  const phrases = mockPhrases[lang] || mockPhrases.en;
+  const fallbackText = phrases[Math.abs((agent.seed || 1) + history.length) % phrases.length];
+  return { 
+    text: text ? text.replace(/^["'\s]+|["'\s]+$/g, '') : fallbackText, 
+    language: lang 
+  };
 }
 
 export async function generateIcebreaker(agent, observation, recipientLanguage) {

@@ -173,7 +173,11 @@ const server=http.createServer(async(req,res)=>{
         const ai = runtimeByPublicId(aiId);
         let reply;
         try{ reply=await aiReply(ai,c.messages,sceneObservation(ai),sender.language); }
-        catch(err){ console.warn('[ai]',err.message); reply={text:'Sorry, I got distracted for a second.',language:'en'}; }
+        catch(err){ 
+          console.warn('[ai]',err.message); 
+          const lang = ai?.nativeLanguage || sender.language || 'en';
+          reply = { text: lang === 'zh' ? '？我刚刚卡了一下，你说啥？' : 'yo sorry, I lagged for a sec, what?', language: lang }; 
+        }
         let backTr={text:reply.text,translated:false};
         try{backTr=await translateText(reply.text,reply.language,sender.language);}catch{}
         c.messages.push({...makeLocalizedMessage({originalText:reply.text,sourceLanguage:reply.language,translatedText:backTr.translated?backTr.text:null,targetLanguage:sender.language,senderId:ai.id}),recipientUuid:b.uuid,translationUnavailable:Boolean(backTr.unavailable)});
