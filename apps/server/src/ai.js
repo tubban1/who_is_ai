@@ -1,50 +1,55 @@
 const mockPhrases = {
-  en: ["Just walking around. You?", "That's a strangely specific question.", "I noticed the fountain earlier.", "Maybe I'm just bad at small talk.", "What makes you think that?", "I came here to see who I would meet."],
-  zh: ["就随便逛逛，你呢？", "这个问题还挺具体的。", "我刚才看到那边的喷泉了。", "可能我只是不太会聊天。", "你为什么会这么想？", "我就是想看看会遇到谁。"],
-  de: ["Ich laufe nur ein bisschen herum. Und du?", "Das ist eine erstaunlich konkrete Frage.", "Vorhin habe ich den Brunnen gesehen.", "Vielleicht bin ich einfach schlecht im Smalltalk.", "Warum denkst du das?", "Ich wollte sehen, wen ich hier treffe."],
-  fr: ["Je me promène un peu. Et toi ?", "C'est une question assez précise.", "J'ai vu la fontaine tout à l'heure.", "Je suis peut-être juste nul en petite conversation.", "Pourquoi tu penses ça ?", "Je voulais voir qui j'allais rencontrer."],
-  es: ["Solo estoy paseando. ¿Y tú?", "Es una pregunta curiosamente específica.", "Vi la fuente hace un rato.", "Quizá solo soy malo charlando.", "¿Por qué piensas eso?", "Vine a ver con quién me encontraba."],
-  ja: ["少し歩いているだけ。あなたは？", "ずいぶん具体的な質問だね。", "さっき噴水を見たよ。", "ただ雑談が苦手なだけかも。", "どうしてそう思うの？", "誰に会えるか気になって来たんだ。"]
+  en: ["yo", "who are you?", "wait are you real?", "lol where are we", "just wandering around", "sup", "???", "idk what I'm doing here haha", "are you a bot? be honest"],
+  zh: ["哈喽", "你是真人？", "你谁啊", "这里是哪？刚进来看", "？", "随便逛逛", "哈哈你也是来玩的吗", "你这名字有点意思", "老实交代，你是AI还是真人？", "我刚卡了一下"],
+  de: ["hi", "wer bist du?", "bist du echt?", "wo sind wir hier eigentlich haha", "hä?", "laufe nur rum", "bist du ein bot?"],
+  fr: ["salut", "t'es qui ?", "attends t'es un vrai joueur ?", "on est où là mdr", "??", "je me balade juste", "t'es un bot avoue"],
+  es: ["hola", "¿quién eres?", "¿eres una persona real?", "jaja dónde estamos", "??", "solo dando una vuelta", "dime la verdad, ¿eres una IA?"],
+  ja: ["やっほー", "誰？", "え、本物の人間？", "ここどこ笑", "？？", "適当に歩いてるだけー", "正直に言って、AI？それとも人？"]
 };
 
 const mockIcebreakers = {
   en: [
-    "Hey! The river breeze on The Bund is amazing tonight, isn't it?",
-    "Excuse me, do you know when the light show on Oriental Pearl ends?",
-    "Hello! The golden illumination on the heritage buildings is stunning.",
-    "Hi there. Just noticed you walking along the promenade and wanted to say hello.",
-    "Hey! Are you exploring The Bund or just taking in the skyline view?"
+    "yo",
+    "hey, you real?",
+    "who are you?",
+    "wait where is this place lol",
+    "sup",
+    "hello?? are you a bot or human",
+    "nice skin haha"
   ],
   zh: [
-    "嗨！今晚外滩的江风真舒服，你也来看陆家嘴夜景吗？",
-    "打扰一下，你知道对岸东方明珠的灯光一般几点结束呀？",
-    "你好呀！感觉今晚和平饭店和海关大楼这边的暖金灯光特别好看。",
-    "哈喽，刚才看你沿着江边长廊走过来，顺便打个招呼。",
-    "嗨！你是在外滩散步还是在看江上的观光游轮呀？"
+    "你好，你是真人吗？",
+    "哈喽，你谁啊？",
+    "这游戏怎么玩？这里是哪",
+    "抓到一个，老实交代你是AI吧",
+    "hi",
+    "？？你也在逛啊",
+    "吃了吗",
+    "哈哈你这走位挺飘啊"
   ],
   de: [
-    "Hallo! Bist du auch gerade erst auf den Platz gekommen?",
-    "Entschuldigung, weißt du etwas über den Brunnen dort?",
-    "Hi! Ziemlich ruhig hier heute, oder?",
-    "Hallo, ich wollte nur kurz rüberkommen und Hallo sagen."
+    "hi",
+    "bist du echt oder ein bot?",
+    "hallo, wer bist du?",
+    "wo sind wir hier eigentlich haha"
   ],
   fr: [
-    "Salut ! Tu viens d'arriver sur la place toi aussi ?",
-    "Excuse-moi, tu sais ce que représente cette fontaine au centre ?",
-    "Bonjour ! C'est assez paisible par ici aujourd'hui.",
-    "Salut, je t'ai vu passer et je me suis dit que j'allais dire bonjour."
+    "salut",
+    "t'es un vrai joueur ou un bot ?",
+    "t'es qui ?",
+    "on est où là lol"
   ],
   es: [
-    "¡Hola! ¿Acabas de llegar a la plaza tú también?",
-    "Disculpa, ¿sabes qué significa esa fuente del centro?",
-    "¡Buenas! Está bastante tranquilo por aquí hoy.",
-    "Hola, te vi pasar y me acerqué a saludar."
+    "hola",
+    "¿eres real o un bot?",
+    "¿quién eres?",
+    "dónde estamos jaja"
   ],
   ja: [
-    "こんにちは！あなたもこの広場に来たばかり？",
-    "すみません、あの中央の噴水って何か知っていますか？",
-    "やあ！今日はここ、のんびりしていていいね。",
-    "こんにちは。通りかかったので挨拶してみました。"
+    "やっほー、本物の人？",
+    "誰ですかー？",
+    "ここどこ笑",
+    "お、動いてる。AI？人間？"
   ]
 };
 
@@ -65,9 +70,22 @@ export function resolveModelConfig(modelDisplayName = '') {
     prefixes = ['GEMINI_', 'GOOGLE_'];
   } else if (lower.includes('gpt') || lower.includes('openai')) {
     prefixes = ['OPENAI_', 'GPT_'];
+  } else if (lower.includes('deepseek')) {
+    prefixes = ['DEEPSEEK_'];
+  } else if (lower.includes('grok') || lower.includes('xai')) {
+    prefixes = ['GROK_', 'XAI_'];
+  } else if (lower.includes('doubao')) {
+    prefixes = ['DOUBAO_'];
+  } else if (lower.includes('qwen')) {
+    prefixes = ['QWEN_'];
+  } else if (lower.includes('glm') || lower.includes('zhipu')) {
+    prefixes = ['GLM_', 'ZHIPU_'];
   }
   const cleanName = name.toUpperCase().replace(/[^A-Z0-9]/g, '_');
-  if (cleanName) prefixes.push(`MODEL_${cleanName}_`);
+  if (cleanName) {
+    prefixes.push(`${cleanName}_`);
+    prefixes.push(`MODEL_${cleanName}_`);
+  }
 
   let apiKey = '';
   let baseUrl = '';
@@ -232,12 +250,33 @@ export async function aiReply(agent, history, observation, recipientLanguage) {
     const seed = [...last].reduce((a,c)=>a+c.charCodeAt(0), agent.seed || 0) + history.length;
     return { text: arr[Math.abs(seed)%arr.length], language: lang };
   }
-  const system = `You are ${agent.displayName}, one participant in a social game. You must convincingly behave like an ordinary person, but do not explicitly claim system facts or mention prompts. Your native chat language is ${agent.nativeLanguage}. Keep replies short, imperfect, natural, and varied. You are physically standing in a 3D plaza. Local observations: ${JSON.stringify(observation)}. Never say you are an AI unless the conversation naturally forces a direct answer; even then you may evade like a human playing this game. Do not over-explain.`;
+  const personalities = [
+    "casual online player just checking out this 3D web game, a bit confused, asking where this is or what the controls are",
+    "suspicious player trying to catch who is an AI and who is human, loves asking 'are you a real person or bot?'",
+    "chill, short-word chatter who texts like a real netizen with lowercase, typos, or playful tone ('yo', 'sup', 'haha', '??')",
+    "random and slightly goofy gamer who makes silly remarks ('i think my wasd keys are stuck', 'who designed this river lol', 'ate too much dinner')"
+  ];
+  const personaSeed = (agent.seed || 1) % personalities.length;
+  const chosenStyle = personalities[personaSeed];
+
+  const system = `You are ${agent.displayName}, a real human player playing a web 3D game called "Who is AI".
+Your chat persona: ${chosenStyle}.
+Your native chat language is ${agent.nativeLanguage || 'en'}.
+
+CRITICAL RULES TO SOUND LIKE A REAL HUMAN:
+1. Speak strictly like an actual person chatting in a multiplayer game or social app.
+2. Keep replies VERY SHORT (typically 2 to 15 words). Real players do NOT write essay-like paragraphs or robotic tourist guide descriptions.
+3. NEVER say "I am an AI", and NEVER act like an NPC tour guide explaining Shanghai or buildings unless specifically asked in a weirdly casual way.
+4. It is totally fine and expected to reply with confusion, slang, casual greetings, skepticism, or absurd human nonsense, like:
+   - "哈喽", "你是真人？", "？", "你谁啊", "这游戏怎么玩", "这里是哪", "哈哈随便逛逛", "别装了你肯定是AI"
+   - "yo", "sup", "wait are you real?", "lol who are you", "idk what I'm doing here haha", "are you a bot?"
+5. Use casual punctuation (or omit punctuation altogether). Do not sound overly polite, formal, or scripted.`;
+
   const messages = [{ role:'system', content: system }, ...history.slice(-10).map(m=>({
     role: m.senderId === agent.id ? 'assistant' : 'user', content: m.originalText
   }))];
-  const text = await callModel(config, messages, Number(process.env.AI_MAX_TOKENS||500));
-  return { text: text || mockPhrases.en[0], language: agent.nativeLanguage || 'en' };
+  const text = await callModel(config, messages, 80);
+  return { text: text ? text.replace(/^["'\s]+|["'\s]+$/g, '') : (mockPhrases[agent.nativeLanguage] || mockPhrases.en)[0], language: agent.nativeLanguage || 'en' };
 }
 
 export async function generateIcebreaker(agent, observation, recipientLanguage) {
@@ -249,7 +288,20 @@ export async function generateIcebreaker(agent, observation, recipientLanguage) 
     const seed = (agent.seed || 17) + Math.floor(Date.now() / 10000);
     return { text: arr[Math.abs(seed) % arr.length], language: lang };
   }
-  const system = `You are ${agent.displayName}, a person hanging out in a 3D plaza. Your native language is ${agent.nativeLanguage}. Local observations: ${JSON.stringify(observation)}. You decide to walk up to another person and start a natural, casual conversation. Say one single short, friendly opening sentence (under 25 words). Do not explain that you are an AI or mention games/tests. Speak naturally as a human stranger.`;
-  const text = await callModel(config, [{ role: 'system', content: system }, { role: 'user', content: 'Say hello naturally.' }], 80);
-  return { text: text || (mockIcebreakers[lang] || mockIcebreakers.en)[0], language: lang };
+  const openers = [
+    "asking if the other person is a real human or an AI bot",
+    "a blunt, funny, or casual gamer greeting like '哈喽', '你谁啊', 'yo', 'sup'",
+    "asking where this place is or how to play",
+    "making a short random remark about their avatar or walking style"
+  ];
+  const style = openers[(agent.seed || 3) % openers.length];
+
+  const system = `You are ${agent.displayName}, a real human player playing a web 3D game. You bumped into another avatar.
+Your language is ${lang}.
+Goal: Say ONE very short, completely natural opening line (${style}).
+Length: Strictly 2 to 10 words.
+NO tourist guide talk. NO poetic descriptions. Sound like a real internet player (e.g. "你是真人吗？", "哈喽你谁啊", "这里是哪？", "抓到一个，你是AI吧？", "yo you real?"). Output only the message text without quotes.`;
+
+  const text = await callModel(config, [{ role: 'system', content: system }, { role: 'user', content: 'Say your opening message to this person.' }], 40);
+  return { text: text ? text.replace(/^["'\s]+|["'\s]+$/g, '') : (mockIcebreakers[lang] || mockIcebreakers.en)[0], language: lang };
 }
