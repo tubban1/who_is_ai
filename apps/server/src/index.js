@@ -200,10 +200,20 @@ const server=http.createServer(async(req,res)=>{
           let backTr={text:reply.text,translated:false};
           try{backTr=await translateText(reply.text,reply.language,sender.language);}catch{}
           
-          // Realistic human typing delay: reading time (~1s) + typing speed (~100ms per char), bounded between 2.4s and 4.2s
-          const targetDelay = Math.min(4200, Math.max(2400, (reply.text?.length || 10) * 110));
+          // Realistic human typing delay:
+          // 1. Reading & reaction time: short question ~600-1100ms, longer question ~1200-1800ms
+          // 2. Typing speed: ~90-140ms per character with random jitter
+          // 3. Short answers (e.g. "哈哈", "yo", "？", "没在看") take ~1.2s - 2.0s
+          // 4. Medium answers take ~2.2s - 3.2s
+          // 5. Long answers take ~3.5s - 4.8s
+          const charCount = (reply.text || '').length;
+          const readTime = Math.min(1600, Math.max(700, (c.messages.at(-1)?.originalText?.length || 5) * 45)) + (Math.random() * 400 - 200);
+          const typeTime = charCount * (90 + Math.random() * 45);
+          const rawTargetDelay = readTime + typeTime;
+          // Clamp between 1300ms (fast short punchy reply) and 4900ms (thoughtful long reply)
+          const targetDelay = Math.min(4900, Math.max(1300, rawTargetDelay));
           const elapsed = Date.now() - startTime;
-          const waitMs = Math.max(100, targetDelay - elapsed);
+          const waitMs = Math.max(150, targetDelay - elapsed);
           
           setTimeout(() => {
             if (!conversations.has(c.id) || c.revealed) return;
@@ -397,7 +407,9 @@ setInterval(async ()=>{
     // Send empty conversation with typing indicator so popup does not dump text instantly
     sendSse(human.uuid, { type: 'incoming_conversation', conversation: publicConversation(c, human.uuid) });
 
-    // Wait realistic typing time before popping the first message
+    // Wait realistic typing time before popping the first message (short greeting ~1.4s - 2.5s)
+    const icebreakerLen = (icebreaker.text || '').length;
+    const initialDelay = Math.min(2800, Math.max(1400, 1100 + icebreakerLen * 90 + Math.random() * 400));
     setTimeout(() => {
       const liveC = conversations.get(id);
       if (!liveC || liveC.revealed) return;
@@ -405,7 +417,7 @@ setInterval(async ()=>{
       liveC.roundsUsed = 1;
       liveC.isPartnerTyping = false;
       sendSse(human.uuid, { type: 'conversation_update', conversation: publicConversation(liveC, human.uuid) });
-    }, 2200);
+    }, initialDelay);
     break;
   }
 }, 5000).unref();

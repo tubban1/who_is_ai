@@ -12,10 +12,18 @@ import { startBgm, stopBgm, toggleBgm, getStoredBgmPreference, playSfx, toggleSf
 import { LANGS, t } from './i18n.js';
 function ensureUuid(){let id=localStorage.getItem('who-is-ai.uuid');if(!id){id=crypto.randomUUID();localStorage.setItem('who-is-ai.uuid',id)}return id}
 
+import { getRandomName } from './names.js';
+
 export default function App(){
   const [started,setStarted]=useState(false); const [uuid]=useState(ensureUuid);
-  const [nickname,setNickname]=useState(localStorage.getItem('who-is-ai.name')||'');
-  const [language,setLanguage]=useState(localStorage.getItem('who-is-ai.lang')||((navigator.language||'zh').split('-')[0]));
+  const initialLang = localStorage.getItem('who-is-ai.lang') || ((navigator.language || 'zh').split('-')[0]);
+  const [language,setLanguage]=useState(initialLang);
+  const [nickname,setNickname]=useState(() => {
+    const saved = localStorage.getItem('who-is-ai.name');
+    if (saved && !saved.startsWith('Guest-') && !saved.startsWith('访客-')) return saved;
+    const generated = getRandomName(initialLang);
+    return generated;
+  });
   const [player,setPlayer]=useState(null); const [world,setWorld]=useState({strangers:[]});
   const [nearest,setNearest]=useState(null); const [conversation,setConversation]=useState(null);
   const [leaderboardOpen,setLeaderboardOpen]=useState(false); const [error,setError]=useState('');
@@ -23,7 +31,7 @@ export default function App(){
   const [sfxActive,setSfxActive]=useState(getStoredSfxPreference);
   const [touchInput,setTouchInput]=useState({ x: 0, y: 0, run: false });
   const [partnerTyping,setPartnerTyping]=useState(false);
-  const eventRef=useRef(null); const audioRef=useRef(null);
+  const eventRef=useRef(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -50,33 +58,21 @@ export default function App(){
   const enter=async()=>{
     setError('');
     try{
-      const name=(nickname.trim()||`Guest-${uuid.slice(0,4)}`).slice(0,24);
+      const name=(nickname.trim()||getRandomName(language)).slice(0,24);
       localStorage.setItem('who-is-ai.name',name);localStorage.setItem('who-is-ai.lang',language);
       const s=await post('/api/session',{uuid,displayName:name,language}); setPlayer(s.player); setStarted(true);
       setTimeout(()=>{
         const bgmPref = getStoredBgmPreference();
         if(bgmPref){
-          audioRef.current?.play().catch(()=>{});
           startBgm();
           setBgmActive(true);
         } else {
-          audioRef.current?.pause();
           stopBgm();
           setBgmActive(false);
         }
       },100);
     }catch(e){setError(e.message)}
   };
-
-  useEffect(()=>{
-    if(!audioRef.current)return;
-    if(bgmActive){
-      audioRef.current.play().catch(()=>{});
-    }else{
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
-  },[bgmActive]);
 
   const nearestRef = useRef(nearest);
   nearestRef.current = nearest;
@@ -174,19 +170,35 @@ export default function App(){
         <b>{t('ruleNotSure', language)}</b>
       </div>
       <label>
-        {t('nicknameLabel', language)}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span>{t('nicknameLabel', language)}</span>
+          <button 
+            type="button" 
+            style={{background:'none',border:'none',color:'#75f2da',fontSize:'11px',cursor:'pointer',padding:0}}
+            onClick={()=>setNickname(getRandomName(language))}
+          >
+            🎲 {language === 'zh' ? '随机昵称' : 'Randomize'}
+          </button>
+        </div>
         <input
           value={nickname}
           onChange={e=>setNickname(e.target.value)}
           maxLength={24}
-          placeholder={t('nicknamePlaceholder', language, { id: uuid.slice(0,4) })}
+          placeholder={getRandomName(language)}
         />
       </label>
       <label>
         {t('myLanguageLabel', language)}
         <select value={language} onChange={e=>{
-          setLanguage(e.target.value);
-          localStorage.setItem('who-is-ai.lang', e.target.value);
+          const nextLang = e.target.value;
+          setLanguage(nextLang);
+          localStorage.setItem('who-is-ai.lang', nextLang);
+          // If the player hadn't customized a personal non-default nickname, switch default name to match new language
+          setNickname(prev => {
+            const saved = localStorage.getItem('who-is-ai.name');
+            if (saved && !saved.startsWith('Guest-') && !saved.startsWith('访客-') && saved === prev) return prev;
+            return getRandomName(nextLang);
+          });
         }}>
           {LANGS.map(([v,n])=><option value={v} key={v}>{n}</option>)}
         </select>
@@ -198,7 +210,6 @@ export default function App(){
   </div>;
 
   return <div className="game-shell">
-    <audio ref={audioRef} src="/audio/plaza_ambient.wav" loop volume="0.18"/>
     <Canvas
       dpr={[1, typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 1.5) : 1]}
       gl={{ powerPreference: 'high-performance', antialias: true, failIfMajorPerformanceCaveat: false }}
