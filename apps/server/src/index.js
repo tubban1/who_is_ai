@@ -100,6 +100,18 @@ function publicConversation(c,forUuid){
   const other=runtimeByPublicId(otherId);
   const alreadyJudged=Boolean(c.alreadyJudged);
   const canGuess = !alreadyJudged && !c.revealed && (isInitiator || (c.initiatorType === 'ai' && isTarget));
+  
+  // Recipient-aware typing status:
+  // If `forUuid` is the recipient specified in `c.typingForRecipientUuid`, they see typing = true.
+  // Or if it's an AI partner responding to this user, they see `c.isPartnerTyping`.
+  let partnerTyping = false;
+  if (c.typingForRecipientUuid) {
+    partnerTyping = c.typingForRecipientUuid === forUuid;
+  } else if (c.isPartnerTyping) {
+    // Default legacy behavior: only show if the partner is AI responding to human initiator/target
+    partnerTyping = Boolean(c.isPartnerTyping);
+  }
+
   return {
     id:c.id, other:other?sanitizeTarget(other):{id:otherId,displayName:'Stranger'},
     roundsUsed:c.roundsUsed,maxRounds:MAX_ROUNDS,revealed:c.revealed,
@@ -107,7 +119,7 @@ function publicConversation(c,forUuid){
     canGuess,
     alreadyJudged,
     initiatorType:c.initiatorType,
-    isPartnerTyping: Boolean(c.isPartnerTyping),
+    isPartnerTyping: partnerTyping,
     messages:c.messages.map(m=>({
       ...m,
       displayText: m.recipientUuid===forUuid ? (m.translatedText||m.originalText) : m.originalText,
@@ -182,7 +194,8 @@ const server=http.createServer(async(req,res)=>{
         target.rotation = Math.atan2(-dx, -dz);
       }
 
-      // If target is human, the receiver's popup will open and show "对方正在输入…" waiting for the initiator to type their first message
+      // If target is human, only the receiver (targetUuid) sees "对方正在输入…" waiting for initiator to speak
+      // The initiator (b.uuid) does NOT see "对方正在输入…"
       const isTargetHuman = Boolean(targetUuid);
       const c={
         id,
@@ -195,7 +208,8 @@ const server=http.createServer(async(req,res)=>{
         roundsUsed:0,
         revealed:false,
         alreadyJudged,
-        isPartnerTyping: isTargetHuman, // Recipient sees initiator typing
+        isPartnerTyping: false,
+        typingForRecipientUuid: isTargetHuman ? targetUuid : null,
         messages:[],
         createdAt:Date.now()
       };
@@ -233,6 +247,7 @@ const server=http.createServer(async(req,res)=>{
       if(recipientUuid) { try{tr=await translateText(text,sourceLanguage,targetLanguage);}catch{} }
       const msg={...makeLocalizedMessage({originalText:text,sourceLanguage,translatedText:tr.translated?tr.text:null,targetLanguage,senderId:sender.publicId}),recipientUuid,translationUnavailable:Boolean(tr.unavailable)};
       c.messages.push(msg);
+      c.typingForRecipientUuid = null; // Clear initial typing state once message is delivered
 
       const isAiPartner = (c.targetType === 'ai' && isInitiator) || (c.initiatorType === 'ai' && isHumanTarget);
       if(isAiPartner){
