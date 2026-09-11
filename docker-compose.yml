@@ -38,7 +38,7 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        VITE_SERVER_URL: http://localhost:8787
+        VITE_SERVER_URL: ""
     ports:
       - "8080:80"
     depends_on:

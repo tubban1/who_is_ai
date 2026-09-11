@@ -1,4 +1,7 @@
-export const API = import.meta.env.VITE_SERVER_URL || 'http://localhost:8787';
+// When running in production browser, always use relative path '' so requests go to the same domain (Nginx /api)
+// When running locally on Vite dev server (port 5173), fallback to http://localhost:8787
+const isLocalDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port === '5173';
+export const API = import.meta.env.VITE_SERVER_URL || (isLocalDev ? 'http://localhost:8787' : '');
 
 export async function post(path, data) {
   const res = await fetch(`${API}${path}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
