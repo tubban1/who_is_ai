@@ -46,6 +46,12 @@ test('resolveModelConfig correctly resolves model-specific prefixes and fallback
   assert.equal(cfgClaude.baseUrl, 'https://claude-relay.test/v1');
   assert.equal(cfgClaude.format, 'anthropic');
 
+  process.env.DEEPSEEK_API_KEY = 'sk-deepseek-test';
+  process.env.DEEPSEEK_BASE_URL = 'https://deepseek-relay.test/v1';
+  const cfgDeepSeek = resolveModelConfig('deepseek-chat');
+  assert.equal(cfgDeepSeek.apiKey, 'sk-deepseek-test');
+  assert.equal(cfgDeepSeek.baseUrl, 'https://deepseek-relay.test/v1');
+
   const cfgDefault = resolveModelConfig('Unknown-Model');
   assert.equal(cfgDefault.format, 'openai');
 });

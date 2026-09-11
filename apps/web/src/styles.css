@@ -23,3 +23,200 @@
 .rank-button-inline:hover{border-color:#75f2da}
 @media(max-width:700px){.top-actions{right:10px;top:10px;gap:6px}}
 
+
+/* ==================== Mobile Touch Controls & Responsive HUD ==================== */
+.mobile-controls-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 25;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.virtual-joystick-base {
+  position: absolute;
+  left: 24px;
+  bottom: 30px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(14, 28, 48, 0.72) 0%, rgba(6, 14, 25, 0.88) 100%);
+  border: 2px solid rgba(117, 242, 218, 0.35);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 0 15px rgba(117, 242, 218, 0.15);
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.virtual-joystick-base.active {
+  border-color: #75f2da;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(117, 242, 218, 0.35);
+}
+
+.virtual-joystick-knob {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #75f2da, #2b7899);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.joystick-arrow {
+  position: absolute;
+  font-size: 8px;
+  color: rgba(117, 242, 218, 0.4);
+  pointer-events: none;
+}
+.joystick-arrow.up { top: 6px; }
+.joystick-arrow.down { bottom: 6px; }
+.joystick-arrow.left { left: 8px; }
+.joystick-arrow.right { right: 8px; }
+
+.mobile-action-group {
+  position: absolute;
+  right: 20px;
+  bottom: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.mobile-action-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(170, 210, 255, 0.25);
+  background: linear-gradient(135deg, rgba(20, 35, 56, 0.9), rgba(10, 18, 32, 0.92));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  color: #edf4ff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s, border-color 0.15s;
+}
+
+.mobile-action-btn:active {
+  transform: scale(0.92);
+}
+
+.mobile-action-btn span {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.mobile-action-btn small {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+}
+
+.mobile-action-btn.run-btn.active {
+  border-color: #fbbf24;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(20, 35, 56, 0.9));
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.4);
+}
+
+.mobile-action-btn.run-btn.active small {
+  color: #fde68a;
+}
+
+.mobile-action-btn.talk-btn {
+  width: 72px;
+  height: 72px;
+  border-color: #75f2da;
+  background: linear-gradient(135deg, rgba(117, 242, 218, 0.25), rgba(10, 22, 36, 0.95));
+  box-shadow: 0 0 20px rgba(117, 242, 218, 0.45);
+  animation: pulse-talk 1.8s infinite;
+}
+
+.mobile-action-btn.talk-btn span {
+  font-size: 24px;
+}
+
+.mobile-action-btn.talk-btn small {
+  color: #75f2da;
+  font-size: 11px;
+}
+
+@keyframes pulse-talk {
+  0% { transform: scale(1); box-shadow: 0 0 14px rgba(117, 242, 218, 0.3); }
+  50% { transform: scale(1.06); box-shadow: 0 0 24px rgba(117, 242, 218, 0.6); }
+  100% { transform: scale(1); box-shadow: 0 0 14px rgba(117, 242, 218, 0.3); }
+}
+
+/* Hide virtual controls on desktop non-touch screens */
+@media (min-width: 1024px) and (pointer: fine) {
+  .mobile-controls-layer {
+    display: none;
+  }
+}
+
+/* Mobile responsive layout enhancements */
+@media (max-width: 768px) {
+  .hud-top {
+    left: 10px;
+    top: 10px;
+    padding: 8px 12px;
+    gap: 12px;
+  }
+  .hud-top b {
+    font-size: 12px;
+  }
+  .hud-top span {
+    font-size: 8px;
+  }
+  .score strong {
+    font-size: 15px;
+  }
+  .top-actions {
+    right: 10px;
+    top: 10px;
+    gap: 6px;
+  }
+  .audio-toggle-btn {
+    padding: 6px 9px;
+    font-size: 10px;
+  }
+  .audio-toggle-btn span:last-child {
+    display: none;
+  }
+  .rank-button-inline {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  .conversation {
+    left: 8px;
+    right: 8px;
+    top: 60px;
+    bottom: 12px;
+    width: auto;
+    border-radius: 16px;
+    max-height: calc(100dvh - 72px);
+  }
+  .composer input {
+    font-size: 14px;
+  }
+  .minimap-wrapper {
+    top: 64px !important;
+    left: 10px !important;
+  }
+  .interaction {
+    display: none !important; /* Replaced by prominent mobile action button */
+  }
+}

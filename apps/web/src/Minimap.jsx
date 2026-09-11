@@ -234,7 +234,7 @@ export const LANDMARKS = [
 import { t, getLocalizedLandmark } from './i18n.js';
 
 export default function Minimap({ playerPos, playerRotation = 0, strangers = [], language = 'zh' }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 700));
   const [activeCategory, setActiveCategory] = useState('all'); // all | pudong | bund | boat
   const [hoveredLandmark, setHoveredLandmark] = useState(null);
 

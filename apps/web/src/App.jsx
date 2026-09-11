@@ -6,6 +6,7 @@ import World from './World.jsx';
 import ConversationPanel from './ConversationPanel.jsx';
 import Leaderboard from './Leaderboard.jsx';
 import Minimap from './Minimap.jsx';
+import MobileControls from './MobileControls.jsx';
 import { startBgm, toggleBgm, getStoredBgmPreference, playSfx } from './audio.js';
 
 import { LANGS, t } from './i18n.js';
@@ -19,6 +20,7 @@ export default function App(){
   const [nearest,setNearest]=useState(null); const [conversation,setConversation]=useState(null);
   const [leaderboardOpen,setLeaderboardOpen]=useState(false); const [error,setError]=useState('');
   const [bgmActive,setBgmActive]=useState(getStoredBgmPreference);
+  const [touchInput,setTouchInput]=useState({ x: 0, y: 0, run: false });
   const eventRef=useRef(null); const audioRef=useRef(null);
 
   const enter=async()=>{
@@ -135,15 +137,27 @@ export default function App(){
 
   return <div className="game-shell">
     <audio ref={audioRef} src="/audio/plaza_ambient.wav" loop volume="0.18"/>
-    <Canvas shadows camera={{position:[0,5,8],fov:60,near:0.8,far:850}}>
+    <Canvas
+      dpr={[1, typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 1.5) : 1]}
+      gl={{ powerPreference: 'high-performance', antialias: true, failIfMajorPerformanceCaveat: false }}
+      shadows
+      camera={{position:[0,5,8],fov:60,near:0.8,far:850}}
+    >
       <color attach="background" args={['#030913']}/>
       {/* Soft atmospheric depth fog (220m - 650m) */}
       <fog attach="fog" args={['#030913',220,650]}/>
       <ambientLight intensity={0.9}/>
-      <directionalLight position={[30,50,20]} intensity={2.4} castShadow shadow-mapSize={[2048,2048]}/>
+      <directionalLight position={[30,50,20]} intensity={2.4} castShadow shadow-mapSize={[1024,1024]}/>
       <pointLight position={[0,9,-6]} intensity={45} distance={55} color="#fed7aa"/>
-      <Stars radius={300} depth={90} count={2000} factor={3.5}/>
-      <World strangers={world.strangers||[]} onNearest={setNearest} onPlayerMoved={onPlayerMoved} conversationOpen={!!conversation} language={language}/>
+      <Stars radius={300} depth={90} count={1200} factor={3.5}/>
+      <World
+        strangers={world.strangers||[]}
+        onNearest={setNearest}
+        onPlayerMoved={onPlayerMoved}
+        conversationOpen={!!conversation}
+        language={language}
+        touchInput={touchInput}
+      />
     </Canvas>
 
     <header className="hud-top glass">
@@ -170,6 +184,15 @@ export default function App(){
     <div className="controls glass">
       <b>WASD / ↑↓←→</b> {t('controlMove', language)} <b>Shift</b> {t('controlRun', language)} <b>E</b> {t('controlTalk', language)}
     </div>
+
+    {/* On-screen Virtual Joystick & Action buttons for Mobile / Touch devices */}
+    <MobileControls
+      onMove={setTouchInput}
+      onAction={startTalk}
+      actionVisible={Boolean(nearest && !conversation)}
+      actionLabel={nearest ? t('talkTo', language, { name: nearest.displayName }) : 'E'}
+    />
+
     {/* Minimap HUD */}
     <Minimap playerPos={playerPos} playerRotation={playerPos?.rotation || 0} strangers={world.strangers || []} language={language}/>
     {nearest&&!conversation&&<div className="interaction">

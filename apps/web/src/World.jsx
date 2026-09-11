@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, Suspense } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Html, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import RiverWater from './RiverWater.jsx';
+import ErrorBoundary3D from './ErrorBoundary3D.jsx';
 
 function Asset({url,position,scale=1,rotation=[0,0,0],tint}){
   const {scene}=useGLTF(url); const obj=useMemo(()=>scene.clone(true),[scene]);
@@ -79,7 +80,7 @@ function Avatar({ p, near }) {
 import { t } from './i18n.js';
 import { playSfx } from './audio.js';
 
-function LocalPlayer({strangers,onNearest,onMoved,conversationOpen,language='zh'}){
+function LocalPlayer({strangers,onNearest,onMoved,conversationOpen,language='zh',touchInput=null}){
   const ref=useRef();
   const keys=useRef({});
   const {camera}=useThree();
@@ -108,18 +109,26 @@ function LocalPlayer({strangers,onNearest,onMoved,conversationOpen,language='zh'
       if(k.KeyS||k.ArrowDown) z+=1;
       if(k.KeyA||k.KeyQ||k.ArrowLeft) x-=1;
       if(k.KeyD||k.ArrowRight) x+=1;
+
+      // Mobile Touch Joystick input overlay
+      if (touchInput && (touchInput.x !== 0 || touchInput.y !== 0)) {
+        x += touchInput.x;
+        z += touchInput.y;
+      }
     }
-    const isLocalMoving = (x !== 0 || z !== 0);
+    const isLocalMoving = (Math.hypot(x, z) > 0.05);
     if (isLocalMoving !== moving) setMoving(isLocalMoving);
 
-    if(x||z){
+    if(isLocalMoving){
       playSfx('step');
       const len=Math.hypot(x,z);
-      x/=len; z/=len;
-      const speed=k.ShiftLeft||k.ShiftRight?8.0:4.6;
-      ref.current.position.x=THREE.MathUtils.clamp(ref.current.position.x+x*speed*dt,-66,66);
-      ref.current.position.z=THREE.MathUtils.clamp(ref.current.position.z+z*speed*dt,-9.8,8.0);
-      ref.current.rotation.y=Math.atan2(x,z);
+      const nx = x / len;
+      const nz = z / len;
+      const isRunning = k.ShiftLeft || k.ShiftRight || (touchInput?.run);
+      const speed = isRunning ? 8.0 : 4.6;
+      ref.current.position.x=THREE.MathUtils.clamp(ref.current.position.x + nx*speed*dt, -66, 66);
+      ref.current.position.z=THREE.MathUtils.clamp(ref.current.position.z + nz*speed*dt, -9.8, 8.0);
+      ref.current.rotation.y=Math.atan2(nx, nz);
     }
     const p=ref.current.position;
     p.y = getGroundHeight(p.z);
@@ -179,15 +188,19 @@ function LocalPlayer({strangers,onNearest,onMoved,conversationOpen,language='zh'
   );
 }
 
-export default function World({strangers,onNearest,onPlayerMoved,conversationOpen,language='zh'}){
+export default function World({strangers,onNearest,onPlayerMoved,conversationOpen,language='zh',touchInput=null}){
   return <>
     {/* Shanghai The Bund & Lujiazui Dynamic Light Show & Megacity Environment */}
-    <CityLightShow url="/assets/plaza_environment.glb?v=shanghai_v10_postcard" />
+    <ErrorBoundary3D fallback={null}>
+      <Suspense fallback={null}>
+        <CityLightShow url="/assets/plaza_environment.glb?v=shanghai_v10_postcard" />
+      </Suspense>
+    </ErrorBoundary3D>
     {/* Flowing Huangpu River with sparkling ripples & zero-flicker depth offset */}
     <RiverWater />
     {/* Dynamic Strangers (AI / Humans) */}
     {strangers.map(s=><Avatar p={s} key={s.id}/>)}
     {/* Local Controllable Player */}
-    <LocalPlayer strangers={strangers} onNearest={onNearest} onMoved={onPlayerMoved} conversationOpen={conversationOpen} language={language}/>
+    <LocalPlayer strangers={strangers} onNearest={onNearest} onMoved={onPlayerMoved} conversationOpen={conversationOpen} language={language} touchInput={touchInput}/>
   </>;
 }
