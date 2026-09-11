@@ -23,11 +23,16 @@ export default function ConversationPanel({uuid,language='zh',conversation,partn
   const handleInputChange = (e) => {
     const val = e.target.value;
     setText(val);
-    // Send typing notification throttled to once every 2 seconds
     const now = Date.now();
-    if (now - lastTypingPingRef.current > 2000 && conversation?.id) {
-      lastTypingPingRef.current = now;
-      post('/api/conversation/typing', { uuid, conversationId: conversation.id }).catch(() => {});
+    if (conversation?.id) {
+      if (val.trim()) {
+        if (now - lastTypingPingRef.current > 1800) {
+          lastTypingPingRef.current = now;
+          post('/api/conversation/typing', { uuid, conversationId: conversation.id, typing: true }).catch(() => {});
+        }
+      } else {
+        post('/api/conversation/typing', { uuid, conversationId: conversation.id, typing: false }).catch(() => {});
+      }
     }
   };
 
@@ -37,6 +42,7 @@ export default function ConversationPanel({uuid,language='zh',conversation,partn
     setError('');
     playSfx('send');
     try{
+      post('/api/conversation/typing', { uuid, conversationId: conversation.id, typing: false }).catch(() => {});
       const d=await post('/api/conversation/message',{uuid,conversationId:conversation.id,text});
       setText('');
       onChange(d.conversation);

@@ -105,14 +105,34 @@ export function createAiPopulation(count=18) {
 }
 
 export function tickAgents(agents, dt=0.7, humans=null) {
-  const activeHumans = humans ? Array.from(humans.values()).filter(h => (h.status === 'available' || !h.status) && Date.now() - (h.lastSeen || 0) < 30000) : [];
+  const now = Date.now();
+  const activeHumans = humans ? Array.from(humans.values()).filter(h => (h.status === 'available' || !h.status) && now - (h.lastSeen || 0) < 30000) : [];
   for (const a of agents) {
     if (a.status !== 'available') continue;
+
+    // 1. Natural idle/pause state (looking at river scenery, smartphone, or daydreaming)
+    if (a.idleUntil && now < a.idleUntil) {
+      // Occasionally turn head / adjust viewing angle slightly while idle
+      if (Math.random() < 0.15) {
+        a.rotation += (Math.random() - 0.5) * 0.4;
+      }
+      continue;
+    }
+
     let dx = a.targetX - a.x;
     let dz = a.targetZ - a.z;
     let d = Math.hypot(dx, dz);
+
+    // 2. Reached waypoint or destination
     if (d < 1.0) {
-      if (activeHumans.length > 0 && Math.random() < 0.5) {
+      // 45% chance to stop and idle for 2 to 5.5 seconds like a real person browsing the Bund promenade
+      if (Math.random() < 0.45 && !a.idleUntil) {
+        a.idleUntil = now + 2000 + Math.random() * 3500;
+        continue;
+      }
+      a.idleUntil = 0;
+
+      if (activeHumans.length > 0 && Math.random() < 0.45) {
         const targetHuman = activeHumans[Math.floor(Math.random() * activeHumans.length)];
         const angle = Math.random() * Math.PI * 2;
         const offset = 1.8 + Math.random() * 1.6;
@@ -126,6 +146,7 @@ export function tickAgents(agents, dt=0.7, humans=null) {
       dz = a.targetZ - a.z;
       d = Math.hypot(dx, dz);
     }
+
     const speed = 1.2 + (a.seed % 5) * 0.15;
     if (d > 0.05) {
       a.x += (dx / d) * speed * dt;

@@ -132,6 +132,17 @@ const server=http.createServer(async(req,res)=>{
       const id=crypto.randomUUID();
       const targetUuid=target.type==='human'?target.uuid:null;
       const alreadyJudged=hasJudged(b.uuid, target.id, targetUuid);
+
+      // Face-to-face Look-At: Rotate characters so they face each other naturally
+      const dx = target.x - me.x;
+      const dz = target.z - me.z;
+      if (Math.hypot(dx, dz) > 0.1) {
+        me.rotation = Math.atan2(dx, dz);
+        target.rotation = Math.atan2(-dx, -dz);
+      }
+
+      // If target is human, the receiver's popup will open and show "对方正在输入…" waiting for the initiator to type their first message
+      const isTargetHuman = Boolean(targetUuid);
       const c={
         id,
         initiatorUuid:b.uuid,
@@ -143,7 +154,7 @@ const server=http.createServer(async(req,res)=>{
         roundsUsed:0,
         revealed:false,
         alreadyJudged,
-        isPartnerTyping:false,
+        isPartnerTyping: isTargetHuman, // Recipient sees initiator typing
         messages:[],
         createdAt:Date.now()
       };
@@ -164,8 +175,9 @@ const server=http.createServer(async(req,res)=>{
     }
 
     if(u.pathname==='/api/conversation/message' && req.method==='POST'){
-      const b=await body(req); const c=conversations.get(b.conversationId); const sender=humans.get(b.uuid);
-      if(!c||!sender) return json(res,404,{error:'conversation not found'});
+      const b=await body(req); const c=conversations.get(b.conversationId);
+      if(!c) return json(res,404,{error:'not found'});
+      const sender=humans.get(b.uuid); if(!sender) return json(res,403,{error:'unauthorized'});
       if(c.revealed) return json(res,409,{error:'conversation already revealed'});
       const isInitiator=c.initiatorUuid===b.uuid;
       const isHumanTarget=c.targetUuid===b.uuid;
@@ -220,6 +232,24 @@ const server=http.createServer(async(req,res)=>{
             c.isPartnerTyping = false;
             c.messages.push({...makeLocalizedMessage({originalText:reply.text,sourceLanguage:reply.language,translatedText:backTr.translated?backTr.text:null,targetLanguage:sender.language,senderId:ai.id}),recipientUuid:b.uuid,translationUnavailable:Boolean(backTr.unavailable)});
             sendSse(b.uuid, {type:'conversation_update', conversation:publicConversation(c,b.uuid)});
+
+            // Natural Early Departure: in round 3 or 4, if AI says goodbye/leaving, end conversation gracefully
+            const replyLower = reply.text.toLowerCase();
+            const isDeparting = (c.roundsUsed >= 3 && Math.random() < 0.22) ||
+              /溜了|走了|拜拜|下线|拍照去了|cya|bye|gotta go|wander|see ya/.test(replyLower);
+            if (isDeparting && !c.revealed) {
+              setTimeout(() => {
+                if (!conversations.has(c.id) || c.revealed) return;
+                ai.status = 'available';
+                ai.displayName = getRandomName(ai.nativeLanguage);
+                // Give AI a new target to walk away
+                ai.targetX = -50 + Math.random() * 100;
+                ai.targetZ = -8 + Math.random() * 12;
+                sender.status = 'available';
+                conversations.delete(c.id);
+                sendSse(b.uuid, { type: 'conversation_ended', conversationId: c.id });
+              }, 2200 + Math.random() * 1000);
+            }
           }, waitMs);
         })().catch(err => {
           c.isPartnerTyping = false;
@@ -403,6 +433,13 @@ setInterval(async ()=>{
       messages: [],
       createdAt: now
     };
+    // Face each other on proactive encounter
+    const pdx = human.x - ai.x;
+    const pdz = human.z - ai.z;
+    if (Math.hypot(pdx, pdz) > 0.1) {
+      ai.rotation = Math.atan2(pdx, pdz);
+      human.rotation = Math.atan2(-pdx, -pdz);
+    }
     conversations.set(id, c);
     // Send empty conversation with typing indicator so popup does not dump text instantly
     sendSse(human.uuid, { type: 'incoming_conversation', conversation: publicConversation(c, human.uuid) });
