@@ -13,6 +13,14 @@ let bgmRunning = false;
 let bgmTimer = null;
 let currentStep = 0;
 
+export function getStoredSfxPreference() {
+  if (typeof localStorage === "undefined") return true;
+  const pref = localStorage.getItem("who-is-ai.sfx_enabled");
+  return pref !== "0";
+}
+
+let sfxEnabled = getStoredSfxPreference();
+
 // Catchy 8-bar synthwave / chiptune theme in A Minor / C Major (124 BPM)
 // Notes to frequencies (Hz)
 const NOTE = {
@@ -83,7 +91,7 @@ function getAudioContext() {
     bgmGain.connect(masterGain);
 
     sfxGain = ctx.createGain();
-    sfxGain.gain.setValueAtTime(0.42, ctx.currentTime);
+    sfxGain.gain.setValueAtTime(sfxEnabled ? 0.42 : 0, ctx.currentTime);
     sfxGain.connect(masterGain);
   }
   if (ctx.state === "suspended") {
@@ -254,9 +262,30 @@ export function getStoredBgmPreference() {
   return pref !== "0";
 }
 
+export function isSfxActive() {
+  return sfxEnabled;
+}
+
+export function setSfxEnabled(enabled) {
+  sfxEnabled = Boolean(enabled);
+  if (typeof localStorage !== "undefined") {
+    localStorage.setItem("who-is-ai.sfx_enabled", sfxEnabled ? "1" : "0");
+  }
+  if (sfxGain && ctx) {
+    sfxGain.gain.setValueAtTime(sfxEnabled ? 0.42 : 0, ctx.currentTime);
+  }
+  return sfxEnabled;
+}
+
+export function toggleSfx() {
+  getAudioContext();
+  return setSfxEnabled(!sfxEnabled);
+}
+
 let lastFootstepTime = 0;
 
 export function playSfx(type) {
+  if (!sfxEnabled) return;
   const audioCtx = getAudioContext();
   if (!audioCtx || !sfxGain) return;
   const now = audioCtx.currentTime;

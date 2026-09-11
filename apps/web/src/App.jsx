@@ -7,7 +7,7 @@ import ConversationPanel from './ConversationPanel.jsx';
 import Leaderboard from './Leaderboard.jsx';
 import Minimap from './Minimap.jsx';
 import MobileControls from './MobileControls.jsx';
-import { startBgm, toggleBgm, getStoredBgmPreference, playSfx } from './audio.js';
+import { startBgm, stopBgm, toggleBgm, getStoredBgmPreference, playSfx, toggleSfx, getStoredSfxPreference } from './audio.js';
 
 import { LANGS, t } from './i18n.js';
 function ensureUuid(){let id=localStorage.getItem('who-is-ai.uuid');if(!id){id=crypto.randomUUID();localStorage.setItem('who-is-ai.uuid',id)}return id}
@@ -20,6 +20,7 @@ export default function App(){
   const [nearest,setNearest]=useState(null); const [conversation,setConversation]=useState(null);
   const [leaderboardOpen,setLeaderboardOpen]=useState(false); const [error,setError]=useState('');
   const [bgmActive,setBgmActive]=useState(getStoredBgmPreference);
+  const [sfxActive,setSfxActive]=useState(getStoredSfxPreference);
   const [touchInput,setTouchInput]=useState({ x: 0, y: 0, run: false });
   const eventRef=useRef(null); const audioRef=useRef(null);
 
@@ -30,14 +31,29 @@ export default function App(){
       localStorage.setItem('who-is-ai.name',name);localStorage.setItem('who-is-ai.lang',language);
       const s=await post('/api/session',{uuid,displayName:name,language}); setPlayer(s.player); setStarted(true);
       setTimeout(()=>{
-        audioRef.current?.play().catch(()=>{});
-        if(getStoredBgmPreference()){
+        const bgmPref = getStoredBgmPreference();
+        if(bgmPref){
+          audioRef.current?.play().catch(()=>{});
           startBgm();
           setBgmActive(true);
+        } else {
+          audioRef.current?.pause();
+          stopBgm();
+          setBgmActive(false);
         }
       },100);
     }catch(e){setError(e.message)}
   };
+
+  useEffect(()=>{
+    if(!audioRef.current)return;
+    if(bgmActive){
+      audioRef.current.play().catch(()=>{});
+    }else{
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+  },[bgmActive]);
 
   const nearestRef = useRef(nearest);
   nearestRef.current = nearest;
@@ -188,10 +204,22 @@ export default function App(){
           const next = toggleBgm();
           setBgmActive(next);
         }}
-        title="MIDI Music Toggle"
+        title="Music & Ambient Toggle"
       >
-        <span>{bgmActive ? '🔊' : '🔇'}</span>
+        <span>{bgmActive ? '🎵' : '🔇'}</span>
         <span>{t('audioBgmToggle', language)}: {bgmActive ? t('audioOn', language) : t('audioOff', language)}</span>
+      </button>
+      <button
+        className={`audio-toggle-btn glass ${!sfxActive ? 'muted' : ''}`}
+        onClick={() => {
+          const next = toggleSfx();
+          setSfxActive(next);
+          if (next) playSfx('click');
+        }}
+        title="Sound Effects Toggle"
+      >
+        <span>{sfxActive ? '🔔' : '🔕'}</span>
+        <span>{t('audioSfxToggle', language)}: {sfxActive ? t('audioOn', language) : t('audioOff', language)}</span>
       </button>
       <button className="rank-button-inline glass" onClick={() => { playSfx('click'); setLeaderboardOpen(true); }}>
         {t('globalLeaderboardBtn', language)}
