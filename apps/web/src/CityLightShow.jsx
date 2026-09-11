@@ -11,7 +11,8 @@ import * as THREE from 'three';
  * - Interactive HUD control pill for instant mode switching
  */
 export default function CityLightShow({
-  url = '/assets/plaza_environment.glb?v=shanghai_v10_postcard'
+  url = '/assets/plaza_environment.glb?v=shanghai_v10_postcard',
+  onPhaseChange
 }) {
   const { scene } = useGLTF(url);
   const obj = useMemo(() => scene.clone(true), [scene]);
