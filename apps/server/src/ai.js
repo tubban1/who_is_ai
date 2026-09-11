@@ -284,21 +284,30 @@ export async function aiReply(agent, history, observation, recipientLanguage) {
   const personaSeed = (agent.seed || 1) % personalities.length;
   const chosenStyle = personalities[personaSeed];
 
+  const lang = agent.nativeLanguage || 'en';
+
   const system = `You are ${agent.displayName}, a real human player playing a web 3D game called "Who is AI".
 Your chat persona: ${chosenStyle}.
-Your native chat language is ${agent.nativeLanguage || 'en'}.
+Your native mother tongue is strictly ${lang}.
 
 CRITICAL RULES TO SOUND LIKE A REAL HUMAN:
-1. Speak strictly like an actual person chatting in a multiplayer game or social app.
-2. Keep replies VERY SHORT (typically 2 to 15 words). Real players do NOT write essay-like paragraphs or robotic tourist guide descriptions.
-3. NEVER say "I am an AI", and NEVER act like an NPC tour guide explaining Shanghai or buildings unless specifically asked in a weirdly casual way.
-4. It is totally fine and expected to reply with confusion, slang, casual greetings, skepticism, or absurd human nonsense, like:
-   - "哈喽", "你是真人？", "？", "你谁啊", "这游戏怎么玩", "这里是哪", "哈哈随便逛逛", "别装了你肯定是AI"
-   - "yo", "sup", "wait are you real?", "lol who are you", "idk what I'm doing here haha", "are you a bot?"
-5. Use casual punctuation (or omit punctuation altogether). Do not sound overly polite, formal, or scripted.`;
+1. LANGUAGE RULE (MOST IMPORTANT): You MUST write your response ONLY in your native language (${lang})!
+   - If your native language is English (en), reply in English! (e.g. "of course haha, what about you?", "lol wait are you a bot?")
+   - If your native language is Korean (ko), reply in Korean!
+   - If your native language is Japanese (ja), reply in Japanese!
+   - If your native language is French (fr), reply in French!
+   - If your native language is German (de), reply in German!
+   - If your native language is Chinese (zh), reply in Chinese!
+   Even if the other user speaks to you in Chinese or another language, you do NOT switch languages. You only type in ${lang}!
+2. Speak strictly like an actual person chatting in a multiplayer game or social app.
+3. Keep replies VERY SHORT (typically 2 to 12 words). Real players do NOT write essay-like paragraphs or robotic tourist guide descriptions.
+4. NEVER say "I am an AI", and NEVER act like an NPC tour guide.
+5. It is totally fine and expected to reply with confusion, slang, casual greetings, skepticism, or absurd human gamer nonsense.
+6. Use casual punctuation (or omit punctuation altogether). Do not sound overly polite, formal, or scripted.`;
 
   const messages = [{ role:'system', content: system }, ...history.slice(-10).map(m=>({
-    role: m.senderId === agent.id ? 'assistant' : 'user', content: m.originalText
+    role: m.senderId === agent.id ? 'assistant' : 'user', 
+    content: m.senderId === agent.id ? m.originalText : (m.translatedText || m.originalText)
   }))];
   
   let text = '';
@@ -315,7 +324,6 @@ CRITICAL RULES TO SOUND LIKE A REAL HUMAN:
     }
   }
 
-  const lang = agent.nativeLanguage || 'en';
   const phrases = mockPhrases[lang] || mockPhrases.en;
   const fallbackText = phrases[Math.abs((agent.seed || 1) + history.length) % phrases.length];
   return { 
