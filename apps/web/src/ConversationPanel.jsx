@@ -5,6 +5,7 @@ import { playSfx } from './audio.js';
 
 export default function ConversationPanel({uuid,language='zh',conversation,onChange,onClose}){
   const [text,setText]=useState(''); const [busy,setBusy]=useState(false); const [showOriginal,setShowOriginal]=useState({}); const [error,setError]=useState('');
+  const [isComposing, setIsComposing] = useState(false);
   const send=async()=>{if(!text.trim()||busy)return;setBusy(true);setError('');playSfx('send');try{const d=await post('/api/conversation/message',{uuid,conversationId:conversation.id,text});setText('');onChange(d.conversation)}catch(e){setError(e.message)}finally{setBusy(false)}};
   const guess=async(g)=>{if(busy)return;setBusy(true);try{const d=await post('/api/conversation/guess',{uuid,conversationId:conversation.id,guess:g});if(d.conversation?.result?.delta===1)playSfx('victory');else if(d.conversation?.result?.delta===-1)playSfx('defeat');else playSfx('draw');onChange(d.conversation,d.player)}catch(e){setError(e.message)}finally{setBusy(false)}};
   const handleClose = async () => {
@@ -53,7 +54,21 @@ export default function ConversationPanel({uuid,language='zh',conversation,onCha
       <button className="primary" onClick={handleClose}>{t('keepWalking', language)}</button>
     </div> : <>
       <div className="composer">
-        <input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')send()}} disabled={roundsLocked||busy} placeholder={roundsLocked?t('composerRoundsLocked', language):t('composerPlaceholder', language)}/>
+        <input 
+          value={text} 
+          onChange={e=>setText(e.target.value)} 
+          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={() => setIsComposing(false)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              if (isComposing || e.nativeEvent.isComposing || e.keyCode === 229) return;
+              e.preventDefault();
+              send();
+            }
+          }} 
+          disabled={roundsLocked||busy} 
+          placeholder={roundsLocked?t('composerRoundsLocked', language):t('composerPlaceholder', language)}
+        />
         <button onClick={send} disabled={roundsLocked||busy}>{t('sendBtn', language)}</button>
       </div>
       {conversation.canGuess&&<div className="guess-zone"><small>{t('yourVerdictTitle', language)}</small><div><button onClick={()=>guess('human')}>{t('guessHumanBtn', language)}</button><button onClick={()=>guess('ai')}>{t('guessAiBtn', language)}</button><button className="muted" onClick={()=>guess('not_sure')}>{t('guessNotSureBtn', language)}</button></div></div>}
