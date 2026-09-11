@@ -3,17 +3,74 @@ import { post } from './api.js';
 import { t } from './i18n.js';
 import { playSfx } from './audio.js';
 
-export default function ConversationPanel({uuid,language='zh',conversation,onChange,onClose}){
+export default function ConversationPanel({uuid,language='zh',conversation,partnerTyping=false,onChange,onClose}){
   const [text,setText]=useState(''); const [busy,setBusy]=useState(false); const [showOriginal,setShowOriginal]=useState({}); const [error,setError]=useState('');
   const [isComposing, setIsComposing] = useState(false);
-  const send=async()=>{if(!text.trim()||busy)return;setBusy(true);setError('');playSfx('send');try{const d=await post('/api/conversation/message',{uuid,conversationId:conversation.id,text});setText('');onChange(d.conversation)}catch(e){setError(e.message)}finally{setBusy(false)}};
-  const guess=async(g)=>{if(busy)return;setBusy(true);try{const d=await post('/api/conversation/guess',{uuid,conversationId:conversation.id,guess:g});if(d.conversation?.result?.delta===1)playSfx('victory');else if(d.conversation?.result?.delta===-1)playSfx('defeat');else playSfx('draw');onChange(d.conversation,d.player)}catch(e){setError(e.message)}finally{setBusy(false)}};
+  const messagesEndRef = React.useRef(null);
+  const lastTypingPingRef = React.useRef(0);
+
+  // Auto-scroll to bottom whenever messages change, partner starts typing, or input is focused
+  const scrollToBottom = (behavior = 'smooth') => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior, block: 'end' });
+    }
+  };
+
+  React.useEffect(() => {
+    scrollToBottom();
+  }, [conversation?.messages, partnerTyping]);
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setText(val);
+    // Send typing notification throttled to once every 2 seconds
+    const now = Date.now();
+    if (now - lastTypingPingRef.current > 2000 && conversation?.id) {
+      lastTypingPingRef.current = now;
+      post('/api/conversation/typing', { uuid, conversationId: conversation.id }).catch(() => {});
+    }
+  };
+
+  const send=async()=>{
+    if(!text.trim()||busy)return;
+    setBusy(true);
+    setError('');
+    playSfx('send');
+    try{
+      const d=await post('/api/conversation/message',{uuid,conversationId:conversation.id,text});
+      setText('');
+      onChange(d.conversation);
+      setTimeout(() => scrollToBottom('auto'), 50);
+    }catch(e){
+      setError(e.message);
+    }finally{
+      setBusy(false);
+    }
+  };
+
+  const guess=async(g)=>{
+    if(busy)return;
+    setBusy(true);
+    try{
+      const d=await post('/api/conversation/guess',{uuid,conversationId:conversation.id,guess:g});
+      if(d.conversation?.result?.delta===1)playSfx('victory');
+      else if(d.conversation?.result?.delta===-1)playSfx('defeat');
+      else playSfx('draw');
+      onChange(d.conversation,d.player);
+    }catch(e){
+      setError(e.message);
+    }finally{
+      setBusy(false);
+    }
+  };
+
   const handleClose = async () => {
     if (!conversation.revealed) {
       try { await post('/api/conversation/leave', { uuid, conversationId: conversation.id }); } catch {}
     }
     onClose();
   };
+
   const myMessages=conversation.messages||[];
   const isMyMsg=m=>m.senderId!==conversation.other.id;
   const isFreeChat=Boolean(conversation.alreadyJudged);
@@ -28,9 +85,17 @@ export default function ConversationPanel({uuid,language='zh',conversation,onCha
   return <div className="conversation glass">
     <div className="conv-head">
       <div>
-        <span className="status-dot"></span>
+        <span className={`status-dot ${partnerTyping ? 'typing' : ''}`}></span>
         <b>{conversation.other.displayName}</b>
-        <small>{isFreeChat ? t('knownParticipant', language) : t('strangerHidden', language)}</small>
+        <small>
+          {partnerTyping ? (
+            <span className="partner-typing-indicator">{t('partnerTyping', language)}</span>
+          ) : isFreeChat ? (
+            t('knownParticipant', language)
+          ) : (
+            t('strangerHidden', language)
+          )}
+        </small>
       </div>
       <button onClick={handleClose} title="Close">×</button>
     </div>
@@ -45,6 +110,17 @@ export default function ConversationPanel({uuid,language='zh',conversation,onCha
         const mine=isMyMsg(m); const hasAlt=Boolean(m.translatedText)&&m.translatedText!==m.originalText; const shown=!mine&&showOriginal[i]?m.originalText:(m.displayText||m.originalText);
         return <div className={`bubble ${mine?'mine':'theirs'}`} key={i}><div>{shown}</div>{!mine&&hasAlt&&<button className="original-toggle" onClick={()=>setShowOriginal(s=>({...s,[i]:!s[i]}))}>{showOriginal[i]?t('showTranslation', language):t('showOriginal', language)} · {m.sourceLanguage}</button>}{!mine&&m.translationUnavailable&&m.sourceLanguage!==language&&<small className="translation-note">{t('translationUnavailable', language)}</small>}</div>
       })}
+      {partnerTyping && (
+        <div className="bubble theirs typing-bubble">
+          <div className="typing-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <span className="typing-text">{t('partnerTyping', language)}</span>
+        </div>
+      )}
+      <div ref={messagesEndRef} style={{ height: 1, margin: 0, padding: 0 }} />
     </div>
     {conversation.revealed ? <div className={`reveal ${conversation.result.delta===1?'win':conversation.result.delta===-1?'lose':'neutral'}`}>
       <div className="reveal-kicker">{t('theyWere', language)}</div>
@@ -56,7 +132,8 @@ export default function ConversationPanel({uuid,language='zh',conversation,onCha
       <div className="composer">
         <input 
           value={text} 
-          onChange={e=>setText(e.target.value)} 
+          onChange={handleInputChange} 
+          onFocus={() => setTimeout(() => scrollToBottom('smooth'), 150)}
           onCompositionStart={() => setIsComposing(true)}
           onCompositionEnd={() => setIsComposing(false)}
           onKeyDown={e => {

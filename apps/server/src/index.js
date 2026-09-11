@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import { initDb, upsertPlayer, getPlayer, applyGuess, leaderboard, modelLeaderboard, impostorLeaderboard, hasJudged } from './db.js';
 import { aiReply, translateText, generateIcebreaker } from './ai.js';
-import { createAiPopulation, tickAgents, distance, sceneObservation, getConfiguredModels } from './world.js';
+import { createAiPopulation, tickAgents, distance, sceneObservation, getConfiguredModels, getRandomName } from './world.js';
 import { MAX_ROUNDS, GUESS, scoreGuess, sanitizeTarget, makeLocalizedMessage } from '../../../packages/shared/src/rules.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -70,6 +70,7 @@ function publicConversation(c,forUuid){
     canGuess,
     alreadyJudged,
     initiatorType:c.initiatorType,
+    isPartnerTyping: Boolean(c.isPartnerTyping),
     messages:c.messages.map(m=>({
       ...m,
       displayText: m.recipientUuid===forUuid ? (m.translatedText||m.originalText) : m.originalText,
@@ -113,8 +114,9 @@ const server=http.createServer(async(req,res)=>{
     }
 
     if(u.pathname==='/api/position' && req.method==='POST'){
-      const b=await body(req); const h=humans.get(b.uuid); if(!h)return json(res,401,{error:'session required'});
-      h.x=Math.max(-70,Math.min(70,Number(b.x)||0)); h.z=Math.max(-25,Math.min(30,Number(b.z)||0)); h.rotation=Number(b.rotation)||0; h.lastSeen=Date.now();
+      const b=await body(req); const h=humans.get(b.uuid);
+      if(!h) return json(res,404,{error:'human not found'});
+      h.x=Number(b.x)||0; h.z=Number(b.z)||0; h.rotation=Number(b.rotation)||0; h.lastSeen=Date.now();
       return json(res,200,{ok:true});
     }
 
@@ -129,7 +131,7 @@ const server=http.createServer(async(req,res)=>{
       if(distance(me,target)>5.5) return json(res,400,{error:'move closer to talk'});
       const id=crypto.randomUUID();
       const targetUuid=target.type==='human'?target.uuid:null;
-      const alreadyJudged=hasJudged(b.uuid, target.id);
+      const alreadyJudged=hasJudged(b.uuid, target.id, targetUuid);
       const c={
         id,
         initiatorUuid:b.uuid,
@@ -141,12 +143,24 @@ const server=http.createServer(async(req,res)=>{
         roundsUsed:0,
         revealed:false,
         alreadyJudged,
+        isPartnerTyping:false,
         messages:[],
         createdAt:Date.now()
       };
       conversations.set(id,c); me.status='talking'; target.status='talking';
       if(targetUuid) sendSse(targetUuid,{type:'incoming_conversation',conversation:publicConversation(c,targetUuid)});
       return json(res,200,{conversation:publicConversation(c,b.uuid)});
+    }
+
+    if(u.pathname==='/api/conversation/typing' && req.method==='POST'){
+      const b=await body(req); const c=conversations.get(b.conversationId);
+      if(c && (c.initiatorUuid===b.uuid || c.targetUuid===b.uuid)){
+        const otherUuid = c.initiatorUuid === b.uuid ? c.targetUuid : c.initiatorUuid;
+        if(otherUuid) {
+          sendSse(otherUuid, { type: 'partner_typing', conversationId: b.conversationId, typing: Boolean(b.typing) });
+        }
+      }
+      return json(res,200,{ok:true});
     }
 
     if(u.pathname==='/api/conversation/message' && req.method==='POST'){
@@ -169,20 +183,43 @@ const server=http.createServer(async(req,res)=>{
 
       const isAiPartner = (c.targetType === 'ai' && isInitiator) || (c.initiatorType === 'ai' && isHumanTarget);
       if(isAiPartner){
+        c.isPartnerTyping = true;
         const aiId = isInitiator ? c.targetPublicId : c.initiatorPublicId;
         const ai = runtimeByPublicId(aiId);
-        let reply;
-        try{ reply=await aiReply(ai,c.messages,sceneObservation(ai),sender.language); }
-        catch(err){ 
-          console.warn('[ai]',err.message); 
-          const lang = ai?.nativeLanguage || sender.language || 'en';
-          reply = { text: lang === 'zh' ? '？我刚刚卡了一下，你说啥？' : 'yo sorry, I lagged for a sec, what?', language: lang }; 
-        }
-        let backTr={text:reply.text,translated:false};
-        try{backTr=await translateText(reply.text,reply.language,sender.language);}catch{}
-        c.messages.push({...makeLocalizedMessage({originalText:reply.text,sourceLanguage:reply.language,translatedText:backTr.translated?backTr.text:null,targetLanguage:sender.language,senderId:ai.id}),recipientUuid:b.uuid,translationUnavailable:Boolean(backTr.unavailable)});
+        
+        // Asynchronously generate AI reply with realistic typing cadence
+        (async () => {
+          const startTime = Date.now();
+          let reply;
+          try{ reply=await aiReply(ai,c.messages,sceneObservation(ai),sender.language); }
+          catch(err){ 
+            console.warn('[ai]',err.message); 
+            const lang = ai?.nativeLanguage || sender.language || 'en';
+            reply = { text: lang === 'zh' ? '？我刚刚卡了一下，你说啥？' : 'yo sorry, I lagged for a sec, what?', language: lang }; 
+          }
+          let backTr={text:reply.text,translated:false};
+          try{backTr=await translateText(reply.text,reply.language,sender.language);}catch{}
+          
+          // Realistic human typing delay: reading time (~1s) + typing speed (~100ms per char), bounded between 2.4s and 4.2s
+          const targetDelay = Math.min(4200, Math.max(2400, (reply.text?.length || 10) * 110));
+          const elapsed = Date.now() - startTime;
+          const waitMs = Math.max(100, targetDelay - elapsed);
+          
+          setTimeout(() => {
+            if (!conversations.has(c.id) || c.revealed) return;
+            c.isPartnerTyping = false;
+            c.messages.push({...makeLocalizedMessage({originalText:reply.text,sourceLanguage:reply.language,translatedText:backTr.translated?backTr.text:null,targetLanguage:sender.language,senderId:ai.id}),recipientUuid:b.uuid,translationUnavailable:Boolean(backTr.unavailable)});
+            sendSse(b.uuid, {type:'conversation_update', conversation:publicConversation(c,b.uuid)});
+          }, waitMs);
+        })().catch(err => {
+          c.isPartnerTyping = false;
+        });
+
+        return json(res,200,{conversation:publicConversation(c,b.uuid)});
       } else if(recipientUuid){
+        c.isPartnerTyping = false;
         sendSse(recipientUuid,{type:'conversation_update',conversation:publicConversation(c,recipientUuid)});
+        sendSse(recipientUuid,{type:'partner_typing',conversationId:c.id,typing:false});
       }
       return json(res,200,{conversation:publicConversation(c,b.uuid)});
     }
@@ -197,7 +234,14 @@ const server=http.createServer(async(req,res)=>{
       const b=await body(req); const c=conversations.get(b.conversationId);
       if(c && (c.initiatorUuid===b.uuid || c.targetUuid===b.uuid)){
         const initiator=runtimeByPublicId(c.initiatorPublicId), target=runtimeByPublicId(c.targetPublicId);
-        if(initiator)initiator.status='available';if(target)target.status='available';
+        if(initiator){
+          initiator.status='available';
+          if(initiator.type==='ai') initiator.displayName = getRandomName(initiator.nativeLanguage);
+        }
+        if(target){
+          target.status='available';
+          if(target.type==='ai') target.displayName = getRandomName(target.nativeLanguage);
+        }
         const hu=humans.get(b.uuid); if(hu)hu.status='available';
         conversations.delete(b.conversationId);
         const otherUuid = c.initiatorUuid === b.uuid ? c.targetUuid : c.initiatorUuid;
@@ -229,7 +273,14 @@ const server=http.createServer(async(req,res)=>{
       c.result={guess:b.guess,targetType,delta,model:targetModel};
       const player=await applyGuess({uuid:b.uuid,targetType,guess:b.guess,delta,roundsUsed:c.roundsUsed,targetPublicId,model:targetModel,targetUuid});
       const initiator=runtimeByPublicId(c.initiatorPublicId), target=runtimeByPublicId(c.targetPublicId);
-      if(initiator)initiator.status='available';if(target)target.status='available';
+      if(initiator){
+        initiator.status='available';
+        if(initiator.type==='ai') initiator.displayName = getRandomName(initiator.nativeLanguage);
+      }
+      if(target){
+        target.status='available';
+        if(target.type==='ai') target.displayName = getRandomName(target.nativeLanguage);
+      }
       const hu=humans.get(b.uuid); if(hu)hu.status='available';
       if(c.targetUuid) sendSse(c.targetUuid,{type:'conversation_revealed',conversation:publicConversation(c,c.targetUuid)});
       if(c.initiatorUuid && c.initiatorUuid!==b.uuid) sendSse(c.initiatorUuid,{type:'conversation_revealed',conversation:publicConversation(c,c.initiatorUuid)});
@@ -290,8 +341,8 @@ setInterval(async ()=>{
     });
 
     if (candidates.length === 0) continue;
-    // Lower chance: only 10% chance every 5s check to initiate
-    if (Math.random() > 0.10) continue;
+    // 20% chance every 5s check to initiate conversation
+    if (Math.random() > 0.20) continue;
 
     const ai = candidates[Math.floor(Math.random() * candidates.length)];
     // Extended cooldown (45s to 75s) so AI doesn't persistently harass humans
@@ -338,11 +389,23 @@ setInterval(async ()=>{
       roundsUsed: 0,
       revealed: false,
       alreadyJudged: judged,
-      messages: [firstMsg],
+      isPartnerTyping: true,
+      messages: [],
       createdAt: now
     };
     conversations.set(id, c);
+    // Send empty conversation with typing indicator so popup does not dump text instantly
     sendSse(human.uuid, { type: 'incoming_conversation', conversation: publicConversation(c, human.uuid) });
+
+    // Wait realistic typing time before popping the first message
+    setTimeout(() => {
+      const liveC = conversations.get(id);
+      if (!liveC || liveC.revealed) return;
+      liveC.messages.push(firstMsg);
+      liveC.roundsUsed = 1;
+      liveC.isPartnerTyping = false;
+      sendSse(human.uuid, { type: 'conversation_update', conversation: publicConversation(liveC, human.uuid) });
+    }, 2200);
     break;
   }
 }, 5000).unref();

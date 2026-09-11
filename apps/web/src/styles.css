@@ -167,6 +167,70 @@
   }
 }
 
+/* Typing indicator bubble and animations */
+.typing-bubble {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px !important;
+  background: rgba(20, 34, 56, 0.85) !important;
+  border: 1px solid rgba(117, 242, 218, 0.2);
+}
+.typing-dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.typing-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #75f2da;
+  display: inline-block;
+  animation: typingDotPulse 1.4s infinite ease-in-out both;
+}
+.typing-dots span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+.typing-dots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+.typing-dots span:nth-child(3) {
+  animation-delay: 0s;
+}
+@keyframes typingDotPulse {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1.1);
+    opacity: 1;
+    box-shadow: 0 0 6px #75f2da;
+  }
+}
+.typing-text {
+  font-size: 11px;
+  color: #8fa5c2;
+  letter-spacing: 0.05em;
+}
+.status-dot.typing {
+  animation: typingGlow 1.2s infinite alternate;
+}
+@keyframes typingGlow {
+  from { box-shadow: 0 0 4px #75f2da; opacity: 0.7; }
+  to { box-shadow: 0 0 12px #75f2da, 0 0 18px #75f2da; opacity: 1; }
+}
+.partner-typing-indicator {
+  color: #75f2da !important;
+  font-weight: 500;
+  animation: typingFade 1.4s infinite ease-in-out;
+}
+@keyframes typingFade {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
 /* Mobile responsive layout enhancements */
 @media (max-width: 768px) {
   .hud-top {
@@ -201,16 +265,33 @@
     font-size: 11px;
   }
   .conversation {
-    left: 8px;
-    right: 8px;
-    top: 14px;
-    bottom: 14px;
-    width: auto;
+    position: fixed !important;
+    left: 8px !important;
+    right: 8px !important;
+    top: auto !important;
+    bottom: calc(var(--keyboard-height, 0px) + 8px) !important;
+    height: auto !important;
+    max-height: calc(var(--visual-viewport-height, 100dvh) - 16px) !important;
+    width: auto !important;
     border-radius: 20px;
-    max-height: calc(100dvh - 28px);
+    display: flex !important;
+    flex-direction: column !important;
     z-index: 100;
     background: rgba(10, 18, 32, 0.98);
     box-shadow: 0 16px 50px rgba(0, 0, 0, 0.92), 0 0 0 1px rgba(117, 242, 218, 0.35);
+    overflow: hidden;
+  }
+  .messages {
+    flex: 1 1 auto;
+    min-height: 80px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .composer {
+    flex-shrink: 0;
+    position: relative;
+    z-index: 2;
+    background: rgba(10, 18, 32, 0.95);
   }
   .composer input {
     font-size: 16px;
@@ -232,3 +313,4 @@
     display: none !important; /* Replaced by prominent mobile action button */
   }
 }
+

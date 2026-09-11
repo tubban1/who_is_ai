@@ -45,6 +45,7 @@ export const TRANSLATIONS = {
     // Conversation Panel
     strangerHidden: '陌生人 · 身份隐藏',
     knownParticipant: '已评判参与者 · 自由畅聊',
+    partnerTyping: '对方正在输入…',
     roundMeter: '对话轮次',
     alreadyJudgedBanner: '已完成评判 · 自由畅聊（不计分）',
     emptyChat: '自然地开启交谈吧。问问周边的风景、他们的一天，或任何能展现对方思维方式的话题。',
@@ -150,6 +151,7 @@ export const TRANSLATIONS = {
     // Conversation Panel
     strangerHidden: 'STRANGER · identity hidden',
     knownParticipant: 'KNOWN PARTICIPANT · Free chat',
+    partnerTyping: 'Typing…',
     roundMeter: 'ROUND',
     alreadyJudgedBanner: 'Already judged · Free chat (No points)',
     emptyChat: 'Start naturally. Ask about the world, their day, or anything that might reveal how they think.',

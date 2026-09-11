@@ -22,7 +22,30 @@ export default function App(){
   const [bgmActive,setBgmActive]=useState(getStoredBgmPreference);
   const [sfxActive,setSfxActive]=useState(getStoredSfxPreference);
   const [touchInput,setTouchInput]=useState({ x: 0, y: 0, run: false });
+  const [partnerTyping,setPartnerTyping]=useState(false);
   const eventRef=useRef(null); const audioRef=useRef(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const updateVv = () => {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      const kbHeight = Math.max(0, window.innerHeight - vv.height);
+      document.documentElement.style.setProperty('--keyboard-height', `${kbHeight}px`);
+      document.documentElement.style.setProperty('--visual-viewport-height', `${vv.height}px`);
+    };
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateVv);
+      window.visualViewport.addEventListener('scroll', updateVv);
+      updateVv();
+    }
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updateVv);
+        window.visualViewport.removeEventListener('scroll', updateVv);
+      }
+    };
+  }, []);
 
   const enter=async()=>{
     setError('');
@@ -69,15 +92,22 @@ export default function App(){
         if(d.type==='world')setWorld(d);
         if(d.type==='incoming_conversation'){
           setConversation(d.conversation);
+          setPartnerTyping(Boolean(d.conversation?.isPartnerTyping));
           playSfx('encounter');
         }
+        if(d.type==='partner_typing' && conversationRef.current?.id===d.conversationId){
+          setPartnerTyping(Boolean(d.typing));
+        }
         if(d.type==='conversation_update'){
+          setPartnerTyping(Boolean(d.conversation?.isPartnerTyping));
           setConversation(curr => (curr && curr.id === d.conversation.id ? d.conversation : curr));
         }
         if(d.type==='conversation_revealed'){
+          setPartnerTyping(false);
           setConversation(curr => (curr && curr.id === d.conversation.id ? d.conversation : curr));
         }
         if(d.type==='conversation_ended'){
+          setPartnerTyping(false);
           setConversation(curr => (curr && curr.id === d.conversationId ? null : curr));
         }
       } catch(e) {}
@@ -239,8 +269,10 @@ export default function App(){
       />
     )}
 
-    {/* Minimap HUD */}
-    <Minimap playerPos={playerPos} playerRotation={playerPos?.rotation || 0} strangers={world.strangers || []} language={language}/>
+    {/* Minimap HUD (hidden during active conversation to keep screen clear) */}
+    {!conversation && (
+      <Minimap playerPos={playerPos} playerRotation={playerPos?.rotation || 0} strangers={world.strangers || []} language={language}/>
+    )}
     {nearest&&!conversation&&<div className="interaction">
       <span>E</span>
       <div>
@@ -248,7 +280,7 @@ export default function App(){
         <small>{t('areTheyHuman', language)}</small>
       </div>
     </div>}
-    {conversation&&<ConversationPanel uuid={uuid} language={language} conversation={conversation} onChange={onConversationChange} onClose={()=>setConversation(null)}/>} 
+    {conversation&&<ConversationPanel uuid={uuid} language={language} conversation={conversation} partnerTyping={partnerTyping || Boolean(conversation?.isPartnerTyping)} onChange={onConversationChange} onClose={()=>setConversation(null)}/>} 
     {leaderboardOpen&&<Leaderboard player={player} onClose={()=>setLeaderboardOpen(false)} language={language}/>} 
     {error&&<div className="toast" onClick={()=>setError('')}>{error}</div>}
   </div>

@@ -8,13 +8,16 @@ const jsonPath = path.join(dataDir, 'local-db.json');
 let pool = null;
 const judgedSet = new Set();
 
-export function hasJudged(uuid, targetPublicId) {
-  if (!uuid || !targetPublicId) return false;
-  return judgedSet.has(`${uuid}:${targetPublicId}`);
+export function hasJudged(uuid, targetPublicId, targetUuid = null) {
+  if (!uuid) return false;
+  if (targetPublicId && judgedSet.has(`${uuid}:${targetPublicId}`)) return true;
+  if (targetUuid && judgedSet.has(`${uuid}:${targetUuid}`)) return true;
+  return false;
 }
 
-function recordJudgedInternal(uuid, targetPublicId) {
+function recordJudgedInternal(uuid, targetPublicId, targetUuid = null) {
   if (uuid && targetPublicId) judgedSet.add(`${uuid}:${targetPublicId}`);
+  if (uuid && targetUuid) judgedSet.add(`${uuid}:${targetUuid}`);
 }
 
 async function loadJson() {
@@ -34,7 +37,9 @@ export async function initDb() {
     for (const e of (data.encounters || [])) {
       const u = e.uuid || e.guesser_uuid;
       const t = e.targetPublicId || e.target_public_id;
+      const tu = e.targetUuid || e.target_uuid;
       if (u && t) judgedSet.add(`${u}:${t}`);
+      if (u && tu) judgedSet.add(`${u}:${tu}`);
     }
     return { mode: 'json' };
   }
@@ -42,20 +47,15 @@ export async function initDb() {
     const { Pool } = await import('pg');
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     await pool.query('SELECT 1');
-    const { rows } = await pool.query('SELECT guesser_uuid, target_public_id FROM encounters');
+    const { rows } = await pool.query('SELECT guesser_uuid, target_public_id, target_uuid FROM encounters');
     for (const r of rows) {
       if (r.guesser_uuid && r.target_public_id) judgedSet.add(`${r.guesser_uuid}:${r.target_public_id}`);
+      if (r.guesser_uuid && r.target_uuid) judgedSet.add(`${r.guesser_uuid}:${r.target_uuid}`);
     }
     return { mode: 'postgres' };
   } catch (err) {
-    console.warn('[db] PostgreSQL unavailable; falling back to JSON:', err.message);
+    console.warn('[db] falling back to json storage:', err.message);
     pool = null;
-    const data = await loadJson();
-    for (const e of (data.encounters || [])) {
-      const u = e.uuid || e.guesser_uuid;
-      const t = e.targetPublicId || e.target_public_id;
-      if (u && t) judgedSet.add(`${u}:${t}`);
-    }
     return { mode: 'json' };
   }
 }
@@ -94,7 +94,7 @@ export async function getPlayer(uuid) {
 }
 
 export async function applyGuess({ uuid, targetType, guess, delta, roundsUsed, targetPublicId, model = null, targetUuid = null }) {
-  recordJudgedInternal(uuid, targetPublicId);
+  recordJudgedInternal(uuid, targetPublicId, targetUuid);
   if (pool) {
     const correct = delta === 1;
     const wrong = delta === -1;

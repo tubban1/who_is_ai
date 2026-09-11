@@ -1,45 +1,55 @@
-export const AGENT_PERSONAS = [
-  // Round 1: Core 6 Languages (zh, en, ja, fr, de, es)
-  { name: '晨曦 (Chenxi)', lang: 'zh' },
-  { name: 'Oliver', lang: 'en' },
-  { name: '陽菜 (Hina)', lang: 'ja' },
-  { name: 'Élodie', lang: 'fr' },
-  { name: 'Maximilian', lang: 'de' },
-  { name: 'Mateo', lang: 'es' },
+export const LANGUAGE_NAME_POOLS = {
+  zh: [
+    '晨曦', '江晓风', '宋欣怡', '沐辰', '陆浩然', '林深见鹿', '小橙子', '晚风拂柳',
+    '陈雨欣', '阿泽', '张宇轩', '李子墨', '安安', '若汐', '沈清秋', '落叶知秋',
+    '海棠依旧', '晴天小狗', '七月流火', '夜行者', '知更鸟', '顾北辰', '苏小言', '白露',
+    '星河漫步', '清风徐来', '半夏微凉', '云舒', '楚天阔', '南风知我意'
+  ],
+  en: [
+    'Oliver', 'Charlotte', 'Liam', 'Emma Wright', 'Lucas_M', 'Chloe', 'Sammy', 'SkyWalker',
+    'NeonRider', 'Sophie_K', 'Daniel', 'Mia', 'Alex', 'James', 'Zoe', 'Ethan', 'PixelDancer',
+    'Grace', 'Noah', 'Harper', 'Benjamin', 'Luna', 'Leo', 'Ava Martinez', 'Mason Reed'
+  ],
+  ja: [
+    '陽菜 (Hina)', '蓮 (Ren)', '葵 (Aoi)', '翔太 (Shota)', '結衣 (Yui)', 'さくら',
+    '大和', 'ゆき', '海斗', 'ソラ', '美咲', '拓海', '悠真', 'ハルカ', 'リク', '楓 (Kaede)'
+  ],
+  ko: [
+    '민준 (Minjun)', '서연 (Seoyeon)', '도윤 (Doyun)', '지우 (Jiwoo)', '하준 (Hajun)',
+    '서아 (Seoah)', '유준 (Yujun)', '채원 (Chaewon)', '지호 (Jiho)', '수아 (Sua)'
+  ],
+  fr: [
+    'Élodie', 'Antoine Laurent', 'Camille', 'Juliette', 'Maxime', 'Chloé',
+    'Lucas', 'Manon', 'Théo', 'Léa', 'Hugo', 'Clément'
+  ],
+  de: [
+    'Maximilian', 'Hannah Weber', 'Lukas Becker', 'Sophie Müller', 'Felix',
+    'Emma', 'Leon', 'Mia', 'Paul', 'Marie', 'Jonas'
+  ],
+  es: [
+    'Mateo', 'Valentina', 'Alejandro Cruz', 'Sofía Navarro', 'Santiago',
+    'Isabella', 'Matías', 'Camila', 'Sebastián', 'Lucía', 'Diego'
+  ],
+  it: [
+    'Lorenzo', 'Giulia Conti', 'Leonardo', 'Sofia', 'Alessandro', 'Aurora', 'Francesco'
+  ],
+  pt: [
+    'Beatriz', 'Tiago Silva', 'Rodrigo', 'Carolina', 'Gabriel', 'Mariana'
+  ],
+  ru: [
+    'Дмитрий (Dmitry)', 'Анастасия (Nastya)', 'Александр (Alex)', 'Елена (Elena)', 'Иван (Ivan)'
+  ]
+};
 
-  // Round 2: Core 6 Languages (diverse native forms)
-  { name: '江晓风', lang: 'zh' },
-  { name: 'Charlotte', lang: 'en' },
-  { name: '蓮 (Ren)', lang: 'ja' },
-  { name: 'Antoine Laurent', lang: 'fr' },
-  { name: 'Hannah Weber', lang: 'de' },
-  { name: 'Valentina', lang: 'es' },
+export function getRandomName(lang = 'zh') {
+  const pool = LANGUAGE_NAME_POOLS[lang] || LANGUAGE_NAME_POOLS.zh;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
 
-  // Round 3: Global Bund Tourists & Cosmopolitans
-  { name: '민준 (Minjun)', lang: 'ko' },
-  { name: 'Lorenzo', lang: 'it' },
-  { name: 'Дмитрий (Dmitry)', lang: 'ru' },
-  { name: '宋欣怡', lang: 'zh' },
-  { name: '葵 (Aoi)', lang: 'ja' },
-  { name: 'Alejandro Cruz', lang: 'es' },
-
-  // Round 4: Extended International Cast
-  { name: '沐辰 (Muchen)', lang: 'zh' },
-  { name: 'Emma Wright', lang: 'en' },
-  { name: '翔太 (Shota)', lang: 'ja' },
-  { name: 'Camille', lang: 'fr' },
-  { name: 'Lukas Becker', lang: 'de' },
-  { name: 'Sofía Navarro', lang: 'es' },
-  { name: '서연 (Seoyeon)', lang: 'ko' },
-  { name: 'Giulia Conti', lang: 'it' },
-  { name: 'Beatriz', lang: 'pt' },
-  { name: 'Tiago Silva', lang: 'pt' },
-  { name: 'Анастасия (Nastya)', lang: 'ru' },
-  { name: '陆浩然', lang: 'zh' },
-  { name: '結衣 (Yui)', lang: 'ja' },
-  { name: 'Liam', lang: 'en' },
-  { name: 'Juliette', lang: 'fr' },
-  { name: 'Sophie Müller', lang: 'de' }
+const AGENT_LANGUAGES = [
+  'zh', 'en', 'zh', 'ja', 'en', 'fr',
+  'zh', 'de', 'es', 'ko', 'zh', 'en',
+  'ja', 'fr', 'zh', 'de', 'es', 'ru'
 ];
 
 export function getConfiguredModels() {
@@ -53,13 +63,14 @@ export function getConfiguredModels() {
 export function createAiPopulation(count=18) {
   const models = getConfiguredModels();
   return Array.from({length:count}, (_,i)=>{
-    const persona = AGENT_PERSONAS[i % AGENT_PERSONAS.length];
+    const lang = AGENT_LANGUAGES[i % AGENT_LANGUAGES.length];
+    const name = getRandomName(lang);
     return {
       id:`a_${String(i+1).padStart(2,'0')}`,
-      displayName: persona.name,
+      displayName: name,
       type:'ai',
       model:models[i%models.length],
-      nativeLanguage: persona.lang,
+      nativeLanguage: lang,
       x: -45 + ((i * 13) % 90),
       z: -7 + ((i * 3) % 11),
       rotation: 0,
