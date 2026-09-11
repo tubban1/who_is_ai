@@ -266,7 +266,7 @@ setInterval(()=>{
   }
 },30000).unref();
 
-// AI natural proactive chat check (checked every 1.5s)
+// AI natural proactive chat check (checked every 5s, lowered frequency)
 setInterval(async ()=>{
   const now = Date.now();
   const activeHumans = Array.from(humans.values()).filter(h => (h.status === 'available' || !h.status) && now - (h.lastSeen || 0) < 30000);
@@ -286,14 +286,16 @@ setInterval(async ()=>{
     const candidates = aiAgents.filter(a => {
       if (a.status !== 'available') return false;
       if (a.chatCooldownUntil && now < a.chatCooldownUntil) return false;
-      return distance(a, human) <= 4.0;
+      return distance(a, human) <= 3.2;
     });
 
     if (candidates.length === 0) continue;
-    if (Math.random() > 0.75) continue;
+    // Lower chance: only 10% chance every 5s check to initiate
+    if (Math.random() > 0.10) continue;
 
     const ai = candidates[Math.floor(Math.random() * candidates.length)];
-    ai.chatCooldownUntil = now + 16000 + Math.random() * 12000;
+    // Extended cooldown (45s to 75s) so AI doesn't persistently harass humans
+    ai.chatCooldownUntil = now + 45000 + Math.random() * 30000;
     ai.status = 'talking';
     human.status = 'talking';
 
@@ -343,7 +345,7 @@ setInterval(async ()=>{
     sendSse(human.uuid, { type: 'incoming_conversation', conversation: publicConversation(c, human.uuid) });
     break;
   }
-}, 2500).unref();
+}, 5000).unref();
 
 setInterval(()=>{
   tickAgents(aiAgents, 0.7, humans);

@@ -258,11 +258,17 @@ export async function translateText(text, sourceLanguage, targetLanguage) {
   if (config.isMock) {
     return { text, translated: false, unavailable: true };
   }
-  const result = await callModel(config, [
-    { role: 'system', content: `Translate the user's message from ${sourceLanguage} to ${targetLanguage}. Preserve slang, uncertainty, tone and mistakes when possible. Output only the translation.` },
-    { role: 'user', content: text }
-  ], 180);
-  return { text: result || text, translated: Boolean(result) };
+  try {
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Translation timeout')), 4500));
+    const callPromise = callModel(config, [
+      { role: 'system', content: `Translate the user's message from ${sourceLanguage} to ${targetLanguage}. Preserve slang, uncertainty, tone and mistakes when possible. Output only the translation.` },
+      { role: 'user', content: text }
+    ], 180);
+    const result = await Promise.race([callPromise, timeoutPromise]);
+    return { text: result || text, translated: Boolean(result) };
+  } catch (err) {
+    return { text, translated: false, unavailable: true };
+  }
 }
 
 export async function aiReply(agent, history, observation, recipientLanguage) {

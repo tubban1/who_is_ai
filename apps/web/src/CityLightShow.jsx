@@ -515,3 +515,5 @@ export default function CityLightShow({
 
   return <primitive object={obj} position={[0, 0, 0]} scale={1} />;
 }
+
+useGLTF.preload('/assets/plaza_environment.glb?v=shanghai_v10_postcard');

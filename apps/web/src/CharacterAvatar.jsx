@@ -48,7 +48,8 @@ export default function CharacterAvatar({
   isPlayer = false,
   isNear = false,
   moving = null,
-  onClick
+  onClick,
+  hideBadge = false
 }) {
   const groupRef = useRef();
   const leftLegRef = useRef();
@@ -271,61 +272,63 @@ export default function CharacterAvatar({
       </group>
 
       {/* 5. Refined Floating Nameplate & HUD Card */}
-      <Html position={[0, 2.35, 0]} center distanceFactor={11} style={{ pointerEvents: 'none' }}>
-        <div style={{
-          whiteSpace: 'nowrap',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '2px',
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-          userSelect: 'none'
-        }}>
-          {/* Main Name Badge */}
+      {!hideBadge && (
+        <Html position={[0, 2.35, 0]} center distanceFactor={11} style={{ pointerEvents: 'none' }}>
           <div style={{
+            whiteSpace: 'nowrap',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            gap: '5px',
-            fontSize: '11px',
-            fontWeight: 700,
-            padding: '4px 9px',
-            borderRadius: '12px',
-            color: isPlayer ? '#38bdf8' : (isNear ? '#fef08a' : '#f1f5f9'),
-            background: isNear
-              ? 'rgba(15, 23, 42, 0.92)'
-              : 'rgba(10, 15, 26, 0.80)',
-            border: isNear
-              ? `1.5px solid ${style.glow}`
-              : (isPlayer ? '1.5px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.16)'),
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            boxShadow: isNear
-              ? `0 4px 18px rgba(0,0,0,0.6), 0 0 12px ${style.glow}66`
-              : '0 2px 10px rgba(0,0,0,0.45)',
-            transform: isNear ? 'scale(1.05)' : 'scale(1.0)',
-            transition: 'all 0.2s ease'
+            gap: '2px',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            userSelect: 'none'
           }}>
-            <span style={{ fontSize: '12px' }}>{style.icon}</span>
-            <span>{displayName}</span>
-          </div>
-
-          {/* Interactive Proximity Callout */}
-          {isNear && !isPlayer && (
+            {/* Main Name Badge */}
             <div style={{
-              fontSize: '10px',
-              fontWeight: 800,
-              padding: '2px 8px',
-              borderRadius: '8px',
-              background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-              color: '#ffffff',
-              boxShadow: '0 2px 8px rgba(245, 158, 11, 0.5)',
-              animation: 'pulse 1.5s infinite'
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              fontSize: '11px',
+              fontWeight: 700,
+              padding: '4px 9px',
+              borderRadius: '12px',
+              color: isPlayer ? '#38bdf8' : (isNear ? '#fef08a' : '#f1f5f9'),
+              background: isNear
+                ? 'rgba(15, 23, 42, 0.92)'
+                : 'rgba(10, 15, 26, 0.80)',
+              border: isNear
+                ? `1.5px solid ${style.glow}`
+                : (isPlayer ? '1.5px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.16)'),
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              boxShadow: isNear
+                ? `0 4px 18px rgba(0,0,0,0.6), 0 0 12px ${style.glow}66`
+                : '0 2px 10px rgba(0,0,0,0.45)',
+              transform: isNear ? 'scale(1.05)' : 'scale(1.0)',
+              transition: 'all 0.2s ease'
             }}>
-              按 E 对话 [TALK]
+              <span style={{ fontSize: '12px' }}>{style.icon}</span>
+              <span>{displayName}</span>
             </div>
-          )}
-        </div>
-      </Html>
+
+            {/* Interactive Proximity Callout */}
+            {isNear && !isPlayer && (
+              <div style={{
+                fontSize: '10px',
+                fontWeight: 800,
+                padding: '2px 8px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                color: '#ffffff',
+                boxShadow: '0 2px 8px rgba(245, 158, 11, 0.5)',
+                animation: 'pulse 1.5s infinite'
+              }}>
+                按 E 对话 [TALK]
+              </div>
+            )}
+          </div>
+        </Html>
+      )}
     </group>
   );
 }

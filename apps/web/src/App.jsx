@@ -39,34 +39,50 @@ export default function App(){
     }catch(e){setError(e.message)}
   };
 
-  useEffect(()=>{
-    if(!started)return;
-    const es=new EventSource(`${API}/api/events?uuid=${encodeURIComponent(uuid)}`); eventRef.current=es;
-    es.onmessage=(ev)=>{
-      const d=JSON.parse(ev.data);
-      if(d.type==='world')setWorld(d);
-      if(d.type==='incoming_conversation'){
-        setConversation(d.conversation);
-        playSfx('encounter');
-      }
-      if(d.type==='conversation_update' && conversation?.id===d.conversation.id)setConversation(d.conversation);
-      if(d.type==='conversation_revealed' && conversation?.id===d.conversation.id)setConversation(d.conversation);
-      if(d.type==='conversation_ended' && conversation?.id===d.conversationId)setConversation(null);
-    };
-    return()=>es.close();
-  },[started,uuid,conversation?.id]);
-
-  useEffect(()=>{
-    if(!started)return; const t=setInterval(async()=>{
-      if(!conversation)return;
-      try{const d=await get(`/api/conversation/get?uuid=${uuid}&id=${conversation.id}`);setConversation(d.conversation)}catch{}
-    },1500); return()=>clearInterval(t);
-  },[started,conversation?.id,uuid]);
-
   const nearestRef = useRef(nearest);
   nearestRef.current = nearest;
   const conversationRef = useRef(conversation);
   conversationRef.current = conversation;
+
+  useEffect(()=>{
+    if(!started)return;
+    const es=new EventSource(`${API}/api/events?uuid=${encodeURIComponent(uuid)}`); eventRef.current=es;
+    es.onmessage=(ev)=>{
+      try {
+        const d=JSON.parse(ev.data);
+        if(d.type==='world')setWorld(d);
+        if(d.type==='incoming_conversation'){
+          setConversation(d.conversation);
+          playSfx('encounter');
+        }
+        if(d.type==='conversation_update'){
+          setConversation(curr => (curr && curr.id === d.conversation.id ? d.conversation : curr));
+        }
+        if(d.type==='conversation_revealed'){
+          setConversation(curr => (curr && curr.id === d.conversation.id ? d.conversation : curr));
+        }
+        if(d.type==='conversation_ended'){
+          setConversation(curr => (curr && curr.id === d.conversationId ? null : curr));
+        }
+      } catch(e) {}
+    };
+    return()=>es.close();
+  },[started,uuid]);
+
+  useEffect(()=>{
+    if(!started)return;
+    const t=setInterval(async()=>{
+      const cur = conversationRef.current;
+      if(!cur)return;
+      try{
+        const d=await get(`/api/conversation/get?uuid=${uuid}&id=${cur.id}`);
+        if(d?.conversation){
+          setConversation(curr => (curr && curr.id === d.conversation.id ? d.conversation : curr));
+        }
+      }catch{}
+    },1200);
+    return()=>clearInterval(t);
+  },[started,uuid]);
 
   const startTalk=async()=>{
     const target = nearestRef.current;
@@ -186,12 +202,14 @@ export default function App(){
     </div>
 
     {/* On-screen Virtual Joystick & Action buttons for Mobile / Touch devices */}
-    <MobileControls
-      onMove={setTouchInput}
-      onAction={startTalk}
-      actionVisible={Boolean(nearest && !conversation)}
-      actionLabel={nearest ? t('talkTo', language, { name: nearest.displayName }) : 'E'}
-    />
+    {!conversation && (
+      <MobileControls
+        onMove={setTouchInput}
+        onAction={startTalk}
+        actionVisible={Boolean(nearest && !conversation)}
+        actionLabel={nearest ? t('talkTo', language, { name: nearest.displayName }) : 'E'}
+      />
+    )}
 
     {/* Minimap HUD */}
     <Minimap playerPos={playerPos} playerRotation={playerPos?.rotation || 0} strangers={world.strangers || []} language={language}/>

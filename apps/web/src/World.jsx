@@ -30,7 +30,7 @@ function getGroundHeight(z) {
   return 1.2;
 }
 
-function Avatar({ p, near }) {
+function Avatar({ p, near, conversationOpen }) {
   const groupRef = useRef();
   const [moving, setMoving] = React.useState(false);
   const targetPos = useRef(new THREE.Vector3(p.x, getGroundHeight(p.z || 0), p.z || 0));
@@ -72,6 +72,7 @@ function Avatar({ p, near }) {
         displayName={p.displayName}
         isNear={near}
         moving={moving}
+        hideBadge={conversationOpen}
       />
     </group>
   );
@@ -183,6 +184,7 @@ function LocalPlayer({strangers,onNearest,onMoved,conversationOpen,language='zh'
         displayName={t('youAvatar', language)}
         isPlayer={true}
         moving={moving}
+        hideBadge={conversationOpen}
       />
     </group>
   );
@@ -199,7 +201,7 @@ export default function World({strangers,onNearest,onPlayerMoved,conversationOpe
     {/* Flowing Huangpu River with sparkling ripples & zero-flicker depth offset */}
     <RiverWater />
     {/* Dynamic Strangers (AI / Humans) */}
-    {strangers.map(s=><Avatar p={s} key={s.id}/>)}
+    {strangers.map(s=><Avatar p={s} key={s.id} conversationOpen={conversationOpen}/>)}
     {/* Local Controllable Player */}
     <LocalPlayer strangers={strangers} onNearest={onNearest} onMoved={onPlayerMoved} conversationOpen={conversationOpen} language={language} touchInput={touchInput}/>
   </>;
