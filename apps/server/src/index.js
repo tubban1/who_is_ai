@@ -291,18 +291,18 @@ const server=http.createServer(async(req,res)=>{
           let backTr={text:reply.text,translated:false};
           try{backTr=await translateText(reply.text,reply.language,sender.language);}catch{}
           
-          // Realistic human typing delay:
-          // 1. Reading & reaction time: short question ~600-1100ms, longer question ~1200-1800ms
-          // 2. Typing speed: ~90-140ms per character with random jitter
-          // 3. Short answers (e.g. "哈哈", "yo", "？", "没在看") take ~1.2s - 2.0s
-          // 4. Medium answers take ~2.2s - 3.2s
-          // 5. Long answers take ~3.5s - 4.8s
+          // Realistic human typing delay (+50% extended):
+          // 1. Reading & reaction time: short question ~900-1650ms, longer question ~1800-2700ms
+          // 2. Typing speed: ~135-210ms per character with random jitter
+          // 3. Short answers (e.g. "哈哈", "yo", "？", "没在看") take ~1.95s - 3.0s
+          // 4. Medium answers take ~3.3s - 4.8s
+          // 5. Long answers take ~5.2s - 7.35s
           const charCount = (reply.text || '').length;
           const readTime = Math.min(1600, Math.max(700, (c.messages.at(-1)?.originalText?.length || 5) * 45)) + (Math.random() * 400 - 200);
           const typeTime = charCount * (90 + Math.random() * 45);
-          const rawTargetDelay = readTime + typeTime;
-          // Clamp between 1300ms (fast short punchy reply) and 4900ms (thoughtful long reply)
-          const targetDelay = Math.min(4900, Math.max(1300, rawTargetDelay));
+          const rawTargetDelay = (readTime + typeTime) * 1.5;
+          // Clamp between 1950ms (fast short punchy reply) and 7350ms (thoughtful long reply) (+50% from 1300ms/4900ms)
+          const targetDelay = Math.min(7350, Math.max(1950, rawTargetDelay));
           const elapsed = Date.now() - startTime;
           const waitMs = Math.max(150, targetDelay - elapsed);
           
@@ -524,9 +524,9 @@ setInterval(async ()=>{
     // Send empty conversation with typing indicator so popup does not dump text instantly
     sendSse(human.uuid, { type: 'incoming_conversation', conversation: publicConversation(c, human.uuid) });
 
-    // Wait realistic typing time before popping the first message (short greeting ~1.4s - 2.5s)
+    // Wait realistic typing time before popping the first message (short greeting ~2.1s - 4.2s, +50% extended)
     const icebreakerLen = (icebreaker.text || '').length;
-    const initialDelay = Math.min(2800, Math.max(1400, 1100 + icebreakerLen * 90 + Math.random() * 400));
+    const initialDelay = Math.min(4200, Math.max(2100, (1100 + icebreakerLen * 90 + Math.random() * 400) * 1.5));
     setTimeout(() => {
       const liveC = conversations.get(id);
       if (!liveC || liveC.revealed) return;
