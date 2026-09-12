@@ -256,15 +256,18 @@ export async function callModel(configOrName, messages, maxTokens, options = {})
 
 export async function translateText(text, sourceLanguage, targetLanguage) {
   if (!text || sourceLanguage === targetLanguage) return { text, translated: false };
-  const translationModel = process.env.TRANSLATION_MODEL || 'translation';
-  let config = resolveModelConfig(translationModel);
-  if (config.isMock) {
-    config = resolveModelConfig('gpt-4o-mini');
+  let config = resolveModelConfig('translation');
+  if (!config.apiKey || config.modelId === 'translation') {
+    config = {
+      displayName: 'translation',
+      modelId: process.env.TRANSLATION_MODEL || 'gpt-4o-mini',
+      apiKey: process.env.TRANSLATION_API_KEY || process.env.DEEPSEEK_API_KEY || process.env.AI_API_KEY,
+      baseUrl: (process.env.TRANSLATION_BASE_URL || process.env.DEEPSEEK_BASE_URL || 'https://api.tourmaster.ch/v1').replace(/\/$/, ''),
+      format: 'openai',
+      isMock: false
+    };
   }
-  if (config.isMock) {
-    config = resolveModelConfig(process.env.AI_MODEL || 'gpt-4o-mini');
-  }
-  if (config.isMock) {
+  if (!config.apiKey || config.isMock) {
     return { text, translated: false, unavailable: true };
   }
   try {
@@ -276,15 +279,12 @@ export async function translateText(text, sourceLanguage, targetLanguage) {
           { role: 'user', content: text }
         ], 120, { temperature: 0.1 });
       } catch (e) {
-        console.warn(`[translate] primary translation model ${config.modelId} failed: ${e.message}, trying fallback...`);
-        const fallbackConfig = resolveModelConfig('qwen-flash');
-        if (fallbackConfig.modelId !== config.modelId && !fallbackConfig.isMock) {
-          return await callModel(fallbackConfig, [
-            { role: 'system', content: `Translate the message from ${sourceLanguage} to ${targetLanguage}. Output ONLY the translated text without quotes.` },
-            { role: 'user', content: text }
-          ], 120, { temperature: 0.1 });
-        }
-        throw e;
+        console.warn(`[translate] primary model ${config.modelId} failed: ${e.message}, trying fallback qwen-flash...`);
+        const fallbackConfig = { ...config, modelId: 'qwen-flash' };
+        return await callModel(fallbackConfig, [
+          { role: 'system', content: `Translate the message from ${sourceLanguage} to ${targetLanguage}. Output ONLY the translated text without quotes.` },
+          { role: 'user', content: text }
+        ], 120, { temperature: 0.1 });
       }
     })();
     const result = await Promise.race([callPromise, timeoutPromise]);
