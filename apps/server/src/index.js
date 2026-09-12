@@ -267,7 +267,7 @@ const server=http.createServer(async(req,res)=>{
       const recipient=isInitiator?runtimeByPublicId(c.targetPublicId):runtimeByPublicId(c.initiatorPublicId);
       const sourceLanguage=sender.language||'en'; const targetLanguage=recipient?.language||recipient?.nativeLanguage||'en';
       let tr={text,translated:false};
-      if(recipientUuid) { try{tr=await translateText(text,sourceLanguage,targetLanguage);}catch{} }
+      try{tr=await translateText(text,sourceLanguage,targetLanguage);}catch{}
       const msg={...makeLocalizedMessage({originalText:text,sourceLanguage,translatedText:tr.translated?tr.text:null,targetLanguage,senderId:sender.publicId}),recipientUuid,translationUnavailable:Boolean(tr.unavailable)};
       c.messages.push(msg);
       c.typingForRecipientUuid = null; // Clear initial typing state once message is delivered

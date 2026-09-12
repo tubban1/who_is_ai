@@ -254,19 +254,39 @@ export async function callModel(configOrName, messages, maxTokens) {
 
 export async function translateText(text, sourceLanguage, targetLanguage) {
   if (!text || sourceLanguage === targetLanguage) return { text, translated: false };
-  const config = resolveModelConfig(process.env.AI_MODEL || 'gpt-4o-mini');
+  const translationModel = process.env.TRANSLATION_MODEL || 'deepseek-v4-flash';
+  let config = resolveModelConfig(translationModel);
+  if (config.isMock) {
+    config = resolveModelConfig(process.env.AI_MODEL || 'gpt-4o-mini');
+  }
   if (config.isMock) {
     return { text, translated: false, unavailable: true };
   }
   try {
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Translation timeout')), 4500));
-    const callPromise = callModel(config, [
-      { role: 'system', content: `Translate the user's message from ${sourceLanguage} to ${targetLanguage}. Preserve slang, uncertainty, tone and mistakes when possible. Output only the translation.` },
-      { role: 'user', content: text }
-    ], 180);
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Translation timeout')), 8000));
+    const callPromise = (async () => {
+      try {
+        return await callModel(config, [
+          { role: 'system', content: `Translate the user's message from ${sourceLanguage} to ${targetLanguage}. Preserve slang, uncertainty, tone and mistakes when possible. Output only the translation without quotes.` },
+          { role: 'user', content: text }
+        ], 180);
+      } catch (e) {
+        console.warn(`[translate] primary translation model ${config.modelId} failed: ${e.message}, trying fallback...`);
+        const fallbackConfig = resolveModelConfig(process.env.AI_MODEL || 'gpt-5.6-terra');
+        if (fallbackConfig.modelId !== config.modelId) {
+          return await callModel(fallbackConfig, [
+            { role: 'system', content: `Translate the user's message from ${sourceLanguage} to ${targetLanguage}. Preserve slang, uncertainty, tone and mistakes when possible. Output only the translation without quotes.` },
+            { role: 'user', content: text }
+          ], 180);
+        }
+        throw e;
+      }
+    })();
     const result = await Promise.race([callPromise, timeoutPromise]);
-    return { text: result || text, translated: Boolean(result) };
+    const cleaned = (result || '').replace(/^["'\s]+|["'\s]+$/g, '');
+    return { text: cleaned || text, translated: Boolean(cleaned) };
   } catch (err) {
+    console.warn(`[translate] translation failed: ${err.message}`);
     return { text, translated: false, unavailable: true };
   }
 }
