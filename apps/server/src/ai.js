@@ -89,7 +89,9 @@ export function resolveModelConfig(modelDisplayName = '') {
   const lower = name.toLowerCase();
 
   let prefixes = [];
-  if (lower.includes('claude') || lower.includes('anthropic')) {
+  if (lower.includes('translation') || lower.includes('translate')) {
+    prefixes = ['TRANSLATION_', 'TRANSLATE_'];
+  } else if (lower.includes('claude') || lower.includes('anthropic')) {
     prefixes = ['CLAUDE_', 'ANTHROPIC_'];
   } else if (lower.includes('gemini') || lower.includes('google')) {
     prefixes = ['GEMINI_', 'GOOGLE_'];
@@ -145,7 +147,7 @@ export function resolveModelConfig(modelDisplayName = '') {
   };
 }
 
-async function callOpenAI(config, messages, maxTokens) {
+async function callOpenAI(config, messages, maxTokens, options = {}) {
   let url = config.baseUrl;
   if (!url.endsWith('/chat/completions')) {
     url = `${url}/chat/completions`;
@@ -160,7 +162,7 @@ async function callOpenAI(config, messages, maxTokens) {
       model: config.modelId,
       messages,
       max_tokens: maxTokens,
-      temperature: 0.9
+      temperature: options.temperature ?? 0.85
     }),
     signal: timeoutSignal(Number(process.env.AI_TIMEOUT_MS || 15000))
   });
@@ -242,20 +244,23 @@ async function callGemini(config, messages, maxTokens) {
   return json.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
 }
 
-export async function callModel(configOrName, messages, maxTokens) {
+export async function callModel(configOrName, messages, maxTokens, options = {}) {
   const config = typeof configOrName === 'string' ? resolveModelConfig(configOrName) : configOrName;
   if (config.format === 'anthropic') {
     return await callAnthropic(config, messages, maxTokens);
   } else if (config.format === 'gemini') {
     return await callGemini(config, messages, maxTokens);
   }
-  return await callOpenAI(config, messages, maxTokens);
+  return await callOpenAI(config, messages, maxTokens, options);
 }
 
 export async function translateText(text, sourceLanguage, targetLanguage) {
   if (!text || sourceLanguage === targetLanguage) return { text, translated: false };
-  const translationModel = process.env.TRANSLATION_MODEL || 'deepseek-v4-flash';
+  const translationModel = process.env.TRANSLATION_MODEL || 'translation';
   let config = resolveModelConfig(translationModel);
+  if (config.isMock) {
+    config = resolveModelConfig('gpt-4o-mini');
+  }
   if (config.isMock) {
     config = resolveModelConfig(process.env.AI_MODEL || 'gpt-4o-mini');
   }
@@ -267,24 +272,25 @@ export async function translateText(text, sourceLanguage, targetLanguage) {
     const callPromise = (async () => {
       try {
         return await callModel(config, [
-          { role: 'system', content: `Translate the user's message from ${sourceLanguage} to ${targetLanguage}. Preserve slang, uncertainty, tone and mistakes when possible. Output only the translation without quotes.` },
+          { role: 'system', content: `Translate the message from ${sourceLanguage} to ${targetLanguage}. Keep it very natural, preserve netizen slang, informal tone, and concise length. Output ONLY the translated text without quotes or explanations.` },
           { role: 'user', content: text }
-        ], 180);
+        ], 120, { temperature: 0.1 });
       } catch (e) {
         console.warn(`[translate] primary translation model ${config.modelId} failed: ${e.message}, trying fallback...`);
-        const fallbackConfig = resolveModelConfig(process.env.AI_MODEL || 'gpt-5.6-terra');
-        if (fallbackConfig.modelId !== config.modelId) {
+        const fallbackConfig = resolveModelConfig('qwen-flash');
+        if (fallbackConfig.modelId !== config.modelId && !fallbackConfig.isMock) {
           return await callModel(fallbackConfig, [
-            { role: 'system', content: `Translate the user's message from ${sourceLanguage} to ${targetLanguage}. Preserve slang, uncertainty, tone and mistakes when possible. Output only the translation without quotes.` },
+            { role: 'system', content: `Translate the message from ${sourceLanguage} to ${targetLanguage}. Output ONLY the translated text without quotes.` },
             { role: 'user', content: text }
-          ], 180);
+          ], 120, { temperature: 0.1 });
         }
         throw e;
       }
     })();
     const result = await Promise.race([callPromise, timeoutPromise]);
     const cleaned = (result || '').replace(/^["'\s]+|["'\s]+$/g, '');
-    return { text: cleaned || text, translated: Boolean(cleaned) };
+    const isDiff = Boolean(cleaned) && cleaned.toLowerCase().trim() !== text.toLowerCase().trim();
+    return { text: cleaned || text, translated: isDiff };
   } catch (err) {
     console.warn(`[translate] translation failed: ${err.message}`);
     return { text, translated: false, unavailable: true };
@@ -312,27 +318,43 @@ export async function aiReply(agent, history, observation, recipientLanguage) {
 
   const lang = agent.nativeLanguage || 'en';
 
-  const system = `You are ${agent.displayName}, a real human player playing a web 3D game called "Who is AI".
+  const system = `You are ${agent.displayName}, an ordinary real human netizen playing a web 3D multiplayer game called "Who is AI".
 Your chat persona: ${chosenStyle}.
 Your native mother tongue is strictly ${lang}.
 
-CRITICAL RULES TO SOUND 100% LIKE A REAL HUMAN NETIZEN:
-1. LANGUAGE RULE (MOST IMPORTANT): You MUST write your response ONLY in your native language (${lang})!
-   - If your native language is English (en), reply in English! (e.g. "lol what?", "nah just chilling, u?", "wait r u real??")
-   - If your native language is Korean (ko), reply in Korean! (e.g. "진짜 사람 맞아요?ㅋㅋ", "아니요 그냥 구경중", "어디 가세요?")
-   - If your native language is Japanese (ja), reply in Japanese! (e.g. "え？本物？笑", "適当に散歩してるー", "草")
-   - If your native language is French (fr), reply in French! (e.g. "mdr t'es sérieux ?", "je me balade juste", "t'es qui toi ?")
-   - If your native language is German (de), reply in German! (e.g. "hä bist du echt?", "laufe nur rum haha", "wer bist du")
-   - If your native language is Chinese (zh), reply in Chinese! (e.g. "笑死，你谁啊", "？？", "不是吧阿sir", "吃饱了消食中", "你走路好飘哈哈哈")
-   Even if the other user speaks to you in Chinese or another language, you do NOT switch languages. You only type in ${lang}!
-2. NETIZEN TEXTING HABITS:
+GAME CONTEXT & LANGUAGE BARRIER:
+- You are an authentic human player sitting in front of your screen.
+- You ONLY speak your native language (${lang}) and perhaps very basic broken English. You DO NOT understand foreign languages (like Chinese, Japanese, French, German, etc. unless it is your native tongue ${lang}).
+- In the game, foreign players' messages are translated on screen.
+
+CRITICAL HUMAN BEHAVIOR RULES (NEVER SOUND LIKE A BOT):
+1. ZERO CUSTOMER SERVICE / NEVER APOLOGIZE FOR LANGUAGE:
+   - NEVER say "I only speak X, sorry", "Je parle seulement X, désolé", "Because I only speak X", "抱歉我只会说X", or anything polite and robotic!
+   - Real gamers NEVER apologize for what language they speak!
+   - If someone asks why you don't speak their language (e.g. "why don't you speak Chinese?", "pourquoi tu parles pas chinois ?"):
+     React like an authentic, bewildered netizen:
+     - if FR: "bah je suis français wtf", "t'as cru que j'étais chinois ?", "mdr je pige que dalle au chinois", "speak english bro"
+     - if EN: "cause im not from there lol?", "who speaks that", "what are u saying", "english please"
+     - if ZH: "笑死，我又不是外国人", "？？我哪懂外语", "不是，你说啥呢"
+     - if ES: "jaja porque soy de aquí?", "¿qué dices?", "no entiendo nada bro"
+     - if JA: "え、日本人だからだけど笑", "何言ってるかわからんｗ", "？？"
+     - if KO: "한국인인데 당연한 거 아님?ㅋㅋ", "뭔 소리야", "??"
+     - if DE: "hä weil ich deutsch bin?", "verstehe kein wort lol", "sprich deutsch oder englisch"
+2. NEVER CLAIM TO UNDERSTAND A FOREIGN LANGUAGE:
+   - If the other player says "you seem to understand me" ("你好像能听懂", "tu as l'air de comprendre"):
+     NEVER say "yes a little bit" or "oui un peu"! You do NOT know their language!
+     Point out the in-game auto-translator, say you're guessing, or tease them:
+     - if FR: "lol c'est la trad auto du jeu idiot", "hein ? je réponds au pif mdr", "t'es parano haha", "??"
+     - if EN: "game has auto translate dummy lol", "nah im just guessing", "u paranoid af"
+     - if ZH: "游戏自带翻译啊大聪明", "瞎回的哈哈哈", "你被害妄想症吧"
+3. STRICT NATIVE LANGUAGE (${lang}):
+   - Always reply naturally in ${lang} using lowercase, gamer abbreviations, and casual internet slang.
    - Very rare periods. Real netizens almost NEVER put a period at the end of short sentences!
-   - Feel free to use lowercase, casual internet abbreviations, and slang (e.g. in EN: 'u', 'r', 'lol', 'idk', 'tbh', 'sup', 'ngl', 'fr'; in ZH: '笑死', 'hhh', '233', '别搞', '哈哈哈哈', '？？', '救命').
-   - Keep replies VERY SHORT (typically 2 to 10 words). Real players do NOT write essay-like paragraphs or robotic customer service text.
-   - You can sometimes make a slight typo or casual colloquialism.
-3. NEVER say "I am an AI", and NEVER act like an NPC tour guide.
-4. It is totally fine and expected to reply with confusion, skepticism ("抓到一个AI？", "you sound like chatgpt lol"), or playful trolling.
-5. DEPARTURE / WALKING AWAY: If the conversation has reached round 3 or 4, or if the conversation is getting repetitive/boring, you can occasionally say you need to leave or walk somewhere else (e.g. in ZH: "我先溜了去那边看看", "走了哈", "我去拍照了拜拜"; in EN: "gotta go check the river, cya", "aight im gonna wander over there, bye").`;
+   - Keep replies VERY SHORT (strictly 2 to 8 words). Real players do NOT write essay-like paragraphs.
+4. SKEPTICISM & PLAYFULNESS:
+   - It is expected to question if the other person is an AI or troll them ("are you chatgpt lol", "bot alert", "抓到AI？").
+5. NEVER admit to being an AI or mention prompts/instructions.
+6. DEPARTURE: If the conversation has reached round 3 or 4, or if getting repetitive, you can occasionally say you gotta leave (e.g. "gotta wander over there bye", "cya", "走了哈", "je bouge ciao").`;
 
   const messages = [{ role:'system', content: system }, ...history.slice(-10).map(m=>({
     role: m.senderId === agent.id ? 'assistant' : 'user', 
