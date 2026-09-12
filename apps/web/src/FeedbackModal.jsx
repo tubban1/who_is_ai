@@ -69,27 +69,6 @@ export default function FeedbackModal({ uuid, displayName, language = 'zh', onCl
             <button className="primary" style={{ marginTop: '20px' }} onClick={onClose}>
               {t('feedbackCloseBtn', language)}
             </button>
-            <div style={{ marginTop: '14px' }}>
-              <a
-                href="#feedbacks"
-                style={{
-                  color: '#75f2da',
-                  fontSize: '12px',
-                  textDecoration: 'none',
-                  opacity: 0.85,
-                  cursor: 'pointer'
-                }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  onClose();
-                  if (typeof window !== 'undefined') {
-                    window.location.hash = 'feedbacks';
-                  }
-                }}
-              >
-                📋 查看所有玩家反馈列表 →
-              </a>
-            </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="feedback-form">
@@ -149,28 +128,6 @@ export default function FeedbackModal({ uuid, displayName, language = 'zh', onCl
               <button type="submit" className="primary feedback-submit-btn" disabled={loading}>
                 {loading ? t('feedbackSubmitting', language) : t('feedbackSubmitBtn', language)}
               </button>
-            </div>
-
-            <div style={{ marginTop: '16px', textAlign: 'center' }}>
-              <a
-                href="#feedbacks"
-                style={{
-                  color: '#75f2da',
-                  fontSize: '12px',
-                  textDecoration: 'none',
-                  opacity: 0.85,
-                  cursor: 'pointer'
-                }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  onClose();
-                  if (typeof window !== 'undefined') {
-                    window.location.hash = 'feedbacks';
-                  }
-                }}
-              >
-                📋 查看所有玩家公开反馈列表 →
-              </a>
             </div>
           </form>
         )}

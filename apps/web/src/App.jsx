@@ -29,12 +29,14 @@ export default function App(){
   const [player,setPlayer]=useState(null); const [world,setWorld]=useState({strangers:[]});
   const [nearest,setNearest]=useState(null); const [conversation,setConversation]=useState(null);
   const [leaderboardOpen,setLeaderboardOpen]=useState(false); const [feedbackOpen,setFeedbackOpen]=useState(false); const [error,setError]=useState('');
-  const [viewRoute, setViewRoute] = useState(() => {
-    if (typeof window === 'undefined') return 'game';
-    const h = window.location.hash || '';
-    const p = window.location.pathname || '';
-    return (h.includes('feedback') || p.includes('feedback')) ? 'feedbacks' : 'game';
-  });
+  const isFeedbackRoute = () => {
+    if (typeof window === 'undefined') return false;
+    const h = (window.location.hash || '').toLowerCase();
+    const p = (window.location.pathname || '').toLowerCase();
+    const s = (window.location.search || '').toLowerCase();
+    return h.includes('feedback') || p.includes('feedback') || s.includes('feedback');
+  };
+  const [viewRoute, setViewRoute] = useState(() => isFeedbackRoute() ? 'feedbacks' : 'game');
   const [bgmActive,setBgmActive]=useState(getStoredBgmPreference);
   const [sfxActive,setSfxActive]=useState(getStoredSfxPreference);
   const [touchInput,setTouchInput]=useState({ x: 0, y: 0, run: false });
@@ -43,13 +45,15 @@ export default function App(){
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const handleHash = () => {
-      const h = window.location.hash || '';
-      const p = window.location.pathname || '';
-      setViewRoute((h.includes('feedback') || p.includes('feedback')) ? 'feedbacks' : 'game');
+    const handleRouteChange = () => {
+      setViewRoute(isFeedbackRoute() ? 'feedbacks' : 'game');
     };
-    window.addEventListener('hashchange', handleHash);
-    return () => window.removeEventListener('hashchange', handleHash);
+    window.addEventListener('hashchange', handleRouteChange);
+    window.addEventListener('popstate', handleRouteChange);
+    return () => {
+      window.removeEventListener('hashchange', handleRouteChange);
+      window.removeEventListener('popstate', handleRouteChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -211,6 +215,24 @@ export default function App(){
   };
   const onConversationChange=(c,p)=>{setConversation(c);if(p)setPlayer(p)};
 
+  if (viewRoute === 'feedbacks') {
+    return (
+      <FeedbackListPage
+        onBack={() => {
+          if (typeof window !== 'undefined') {
+            if (window.location.hash) {
+              window.location.hash = '';
+            }
+            if (window.location.pathname.includes('feedback') || window.location.search.includes('feedback')) {
+              window.history.pushState(null, '', '/');
+            }
+          }
+          setViewRoute('game');
+        }}
+      />
+    );
+  }
+
   if(!started)return <div className="landing">
     <div className="landing-orb"></div>
     <div className="landing-card glass">
@@ -260,34 +282,9 @@ export default function App(){
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
         <small>{t('uuidNotice', language)}</small>
       </div>
-      <div style={{ marginTop: '10px' }}>
-        <button
-          type="button"
-          style={{ background: 'none', border: 'none', color: '#75f2da', fontSize: '11px', cursor: 'pointer', opacity: 0.8 }}
-          onClick={() => {
-            window.location.hash = 'feedbacks';
-            setViewRoute('feedbacks');
-          }}
-        >
-          📋 查看所有玩家反馈
-        </button>
-      </div>
       {error&&<div className="error">{error}</div>}
     </div>
   </div>;
-
-  if (viewRoute === 'feedbacks') {
-    return (
-      <FeedbackListPage
-        onBack={() => {
-          if (typeof window !== 'undefined') {
-            window.location.hash = '';
-          }
-          setViewRoute('game');
-        }}
-      />
-    );
-  }
 
   return <div className="game-shell">
     <Canvas

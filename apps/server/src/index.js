@@ -413,6 +413,7 @@ const server=http.createServer(async(req,res)=>{
       else if(u.pathname==='/standalone.css') filePath=path.join(STANDALONE,'standalone.css');
       else if(u.pathname.startsWith('/audio/')) filePath=path.join(WEB_PUBLIC,u.pathname);
       else if(u.pathname.startsWith('/assets/')) filePath=path.join(WEB_PUBLIC,u.pathname);
+      else if(!u.pathname.startsWith('/api/')) filePath=path.join(STANDALONE,'index.html');
       if(filePath) {
         try {
           const data=await fs.readFile(filePath);
