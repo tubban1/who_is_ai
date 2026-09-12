@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
-import { initDb, upsertPlayer, getPlayer, applyGuess, leaderboard, modelLeaderboard, impostorLeaderboard, hasJudged, saveFeedback } from './db.js';
+import { initDb, upsertPlayer, getPlayer, applyGuess, leaderboard, modelLeaderboard, impostorLeaderboard, hasJudged, saveFeedback, getFeedbacks } from './db.js';
 import { aiReply, translateText, generateIcebreaker } from './ai.js';
 import { createAiPopulation, tickAgents, distance, sceneObservation, getConfiguredModels, getRandomName } from './world.js';
 import { MAX_ROUNDS, GUESS, scoreGuess, sanitizeTarget, makeLocalizedMessage } from '../../../packages/shared/src/rules.js';
@@ -176,6 +176,10 @@ const server=http.createServer(async(req,res)=>{
     if(u.pathname==='/api/leaderboard' && req.method==='GET') return json(res,200,{rows:await leaderboard(100)});
     if(u.pathname==='/api/leaderboard/models' && req.method==='GET') return json(res,200,{rows:await modelLeaderboard(getConfiguredModels())});
     if(u.pathname==='/api/leaderboard/impostors' && req.method==='GET') return json(res,200,{rows:await impostorLeaderboard(100)});
+    if(u.pathname==='/api/feedbacks' && req.method==='GET') {
+      const limit = Math.min(200, Math.max(1, Number(u.searchParams.get('limit')) || 100));
+      return json(res,200,{feedbacks: await getFeedbacks(limit)});
+    }
 
     if(u.pathname==='/api/feedback' && req.method==='POST'){
       const b=await body(req);

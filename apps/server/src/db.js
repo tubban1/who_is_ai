@@ -131,6 +131,34 @@ export async function saveFeedback({ uuid, contactType, contactValue, content, d
   return item;
 }
 
+export async function getFeedbacks(limit = 100) {
+  if (pool) {
+    try {
+      const { rows } = await pool.query(`
+        SELECT id, player_uuid, display_name, contact_type, contact_value, content, language, created_at
+        FROM feedbacks
+        ORDER BY created_at DESC
+        LIMIT $1
+      `, [limit]);
+      return rows.map(r => ({
+        id: r.id,
+        playerUuid: r.player_uuid,
+        displayName: r.display_name,
+        contactType: r.contact_type,
+        contactValue: r.contact_value,
+        content: r.content,
+        language: r.language,
+        createdAt: r.created_at
+      }));
+    } catch {
+      return [];
+    }
+  }
+  const data = await loadJson();
+  const list = Array.isArray(data.feedbacks) ? [...data.feedbacks] : [];
+  return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, limit);
+}
+
 export async function applyGuess({ uuid, targetType, guess, delta, roundsUsed, targetPublicId, model = null, targetUuid = null }) {
   recordJudgedInternal(uuid, targetPublicId, targetUuid);
   if (pool) {

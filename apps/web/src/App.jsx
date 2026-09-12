@@ -6,6 +6,7 @@ import World from './World.jsx';
 import ConversationPanel from './ConversationPanel.jsx';
 import Leaderboard from './Leaderboard.jsx';
 import FeedbackModal from './FeedbackModal.jsx';
+import FeedbackListPage from './FeedbackListPage.jsx';
 import Minimap from './Minimap.jsx';
 import MobileControls from './MobileControls.jsx';
 import { startBgm, stopBgm, toggleBgm, getStoredBgmPreference, playSfx, toggleSfx, getStoredSfxPreference } from './audio.js';
@@ -28,11 +29,28 @@ export default function App(){
   const [player,setPlayer]=useState(null); const [world,setWorld]=useState({strangers:[]});
   const [nearest,setNearest]=useState(null); const [conversation,setConversation]=useState(null);
   const [leaderboardOpen,setLeaderboardOpen]=useState(false); const [feedbackOpen,setFeedbackOpen]=useState(false); const [error,setError]=useState('');
+  const [viewRoute, setViewRoute] = useState(() => {
+    if (typeof window === 'undefined') return 'game';
+    const h = window.location.hash || '';
+    const p = window.location.pathname || '';
+    return (h.includes('feedback') || p.includes('feedback')) ? 'feedbacks' : 'game';
+  });
   const [bgmActive,setBgmActive]=useState(getStoredBgmPreference);
   const [sfxActive,setSfxActive]=useState(getStoredSfxPreference);
   const [touchInput,setTouchInput]=useState({ x: 0, y: 0, run: false });
   const [partnerTyping,setPartnerTyping]=useState(false);
   const eventRef=useRef(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleHash = () => {
+      const h = window.location.hash || '';
+      const p = window.location.pathname || '';
+      setViewRoute((h.includes('feedback') || p.includes('feedback')) ? 'feedbacks' : 'game');
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -239,10 +257,37 @@ export default function App(){
         </select>
       </label>
       <button className="primary" onClick={enter}>{t('enterWorld', language)}</button>
-      <small>{t('uuidNotice', language)}</small>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+        <small>{t('uuidNotice', language)}</small>
+      </div>
+      <div style={{ marginTop: '10px' }}>
+        <button
+          type="button"
+          style={{ background: 'none', border: 'none', color: '#75f2da', fontSize: '11px', cursor: 'pointer', opacity: 0.8 }}
+          onClick={() => {
+            window.location.hash = 'feedbacks';
+            setViewRoute('feedbacks');
+          }}
+        >
+          📋 查看所有玩家反馈
+        </button>
+      </div>
       {error&&<div className="error">{error}</div>}
     </div>
   </div>;
+
+  if (viewRoute === 'feedbacks') {
+    return (
+      <FeedbackListPage
+        onBack={() => {
+          if (typeof window !== 'undefined') {
+            window.location.hash = '';
+          }
+          setViewRoute('game');
+        }}
+      />
+    );
+  }
 
   return <div className="game-shell">
     <Canvas
