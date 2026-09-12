@@ -18,15 +18,12 @@ services:
     build:
       context: .
       dockerfile: apps/server/Dockerfile
+    env_file:
+      - .env
     environment:
       NODE_ENV: production
       SERVER_PORT: 8787
       DATABASE_URL: postgres://whoisai:whoisai@postgres:5432/whoisai
-      AI_PROVIDER: ${AI_PROVIDER:-mock}
-      AI_BASE_URL: ${AI_BASE_URL:-https://api.openai.com/v1}
-      AI_API_KEY: ${AI_API_KEY:-}
-      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
-      AI_POPULATION: ${AI_POPULATION:-18}
     depends_on:
       postgres:
         condition: service_healthy

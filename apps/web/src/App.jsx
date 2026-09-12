@@ -5,6 +5,7 @@ import { API, get, post } from './api.js';
 import World from './World.jsx';
 import ConversationPanel from './ConversationPanel.jsx';
 import Leaderboard from './Leaderboard.jsx';
+import FeedbackModal from './FeedbackModal.jsx';
 import Minimap from './Minimap.jsx';
 import MobileControls from './MobileControls.jsx';
 import { startBgm, stopBgm, toggleBgm, getStoredBgmPreference, playSfx, toggleSfx, getStoredSfxPreference } from './audio.js';
@@ -26,7 +27,7 @@ export default function App(){
   });
   const [player,setPlayer]=useState(null); const [world,setWorld]=useState({strangers:[]});
   const [nearest,setNearest]=useState(null); const [conversation,setConversation]=useState(null);
-  const [leaderboardOpen,setLeaderboardOpen]=useState(false); const [error,setError]=useState('');
+  const [leaderboardOpen,setLeaderboardOpen]=useState(false); const [feedbackOpen,setFeedbackOpen]=useState(false); const [error,setError]=useState('');
   const [bgmActive,setBgmActive]=useState(getStoredBgmPreference);
   const [sfxActive,setSfxActive]=useState(getStoredSfxPreference);
   const [touchInput,setTouchInput]=useState({ x: 0, y: 0, run: false });
@@ -299,6 +300,9 @@ export default function App(){
       <button className="rank-button-inline glass" onClick={() => { playSfx('click'); setLeaderboardOpen(true); }}>
         {t('globalLeaderboardBtn', language)}
       </button>
+      <button className="rank-button-inline glass" onClick={() => { playSfx('click'); setFeedbackOpen(true); }}>
+        {t('feedbackBtn', language)}
+      </button>
     </div>
     <div className="controls glass">
       <b>WASD / ↑↓←→</b> {t('controlMove', language)} <b>Shift</b> {t('controlRun', language)} <b>E</b> {t('controlTalk', language)}
@@ -327,6 +331,7 @@ export default function App(){
     </div>}
     {conversation&&<ConversationPanel uuid={uuid} language={language} conversation={conversation} partnerTyping={partnerTyping || Boolean(conversation?.isPartnerTyping)} onChange={onConversationChange} onClose={()=>setConversation(null)}/>} 
     {leaderboardOpen&&<Leaderboard player={player} onClose={()=>setLeaderboardOpen(false)} language={language}/>} 
+    {feedbackOpen&&<FeedbackModal uuid={uuid} displayName={nickname} language={language} onClose={()=>setFeedbackOpen(false)}/>}
     {error&&<div className="toast" onClick={()=>setError('')}>{error}</div>}
   </div>
 }

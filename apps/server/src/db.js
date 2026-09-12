@@ -93,6 +93,44 @@ export async function getPlayer(uuid) {
   return data.players[uuid] || null;
 }
 
+export async function saveFeedback({ uuid, contactType, contactValue, content, displayName, language }) {
+  if (pool) {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS feedbacks (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_uuid UUID REFERENCES players(uuid) ON DELETE SET NULL,
+        display_name TEXT,
+        contact_type VARCHAR(32) NOT NULL,
+        contact_value TEXT NOT NULL,
+        content TEXT NOT NULL,
+        language VARCHAR(16),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `).catch(() => {});
+    const { rows } = await pool.query(`
+      INSERT INTO feedbacks (player_uuid, display_name, contact_type, contact_value, content, language)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `, [uuid, displayName || null, contactType, contactValue, content, language || null]);
+    return rows[0];
+  }
+  const data = await loadJson();
+  if (!data.feedbacks) data.feedbacks = [];
+  const item = {
+    id: `fb_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    playerUuid: uuid,
+    displayName,
+    contactType,
+    contactValue,
+    content,
+    language,
+    createdAt: new Date().toISOString()
+  };
+  data.feedbacks.push(item);
+  await saveJson(data);
+  return item;
+}
+
 export async function applyGuess({ uuid, targetType, guess, delta, roundsUsed, targetPublicId, model = null, targetUuid = null }) {
   recordJudgedInternal(uuid, targetPublicId, targetUuid);
   if (pool) {

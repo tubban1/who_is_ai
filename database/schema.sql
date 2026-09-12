@@ -41,3 +41,15 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE INDEX IF NOT EXISTS idx_players_score ON players(score DESC);
 CREATE INDEX IF NOT EXISTS idx_encounters_guesser ON encounters(guesser_uuid, started_at DESC);
+
+CREATE TABLE IF NOT EXISTS feedbacks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  player_uuid UUID REFERENCES players(uuid) ON DELETE SET NULL,
+  display_name TEXT,
+  contact_type VARCHAR(32) NOT NULL,
+  contact_value TEXT NOT NULL,
+  content TEXT NOT NULL,
+  language VARCHAR(16),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+

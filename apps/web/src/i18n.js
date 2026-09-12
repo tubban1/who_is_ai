@@ -116,7 +116,24 @@ export const TRANSLATIONS = {
     distMeters: '距离您约 {dist} 米',
     tagPudong: '陆家嘴金融城',
     tagBoat: '浦江水上游船',
-    tagBund: '外滩万国建筑群'
+    tagBund: '外滩万国建筑群',
+
+    // Feedback
+    feedbackBtn: '💬 意见反馈',
+    feedbackEyebrow: '产品与体验反馈',
+    feedbackTitle: '玩家反馈与建议',
+    feedbackSubtitle: '留下您的联系方式与宝贵建议，帮助我们将游戏体验打磨得更好！',
+    feedbackContactTypeLabel: '联系方式',
+    feedbackContentLabel: '反馈内容',
+    feedbackContentPlaceholder: '告诉我们您在体验过程中的感受、遇到的 Bug，或者对 AI 逼真程度的宝贵建议…',
+    feedbackContactRequired: '请填写您的联系方式（邮箱/微信/WhatsApp等）',
+    feedbackContentRequired: '请填写反馈内容',
+    feedbackSubmitBtn: '提交反馈',
+    feedbackSubmitting: '提交中…',
+    feedbackCancelBtn: '取消',
+    feedbackSuccessTitle: '提交成功！',
+    feedbackSuccessDesc: '非常感谢您的宝贵建议，团队会认真阅读并不断优化体验。',
+    feedbackCloseBtn: '关闭'
   },
 
   en: {
@@ -213,7 +230,24 @@ export const TRANSLATIONS = {
     distMeters: 'Approx {dist}m from you',
     tagPudong: 'Lujiazui Skyline',
     tagBoat: 'Huangpu Cruise',
-    tagBund: 'The Bund Heritage'
+    tagBund: 'The Bund Heritage',
+
+    // Feedback
+    feedbackBtn: '💬 Feedback',
+    feedbackEyebrow: 'FEEDBACK & SUGGESTIONS',
+    feedbackTitle: 'Player Feedback',
+    feedbackSubtitle: 'Leave your contact info and thoughts to help us improve the experience!',
+    feedbackContactTypeLabel: 'Contact',
+    feedbackContentLabel: 'Your Feedback',
+    feedbackContentPlaceholder: 'Share your impressions, bugs encountered, or suggestions on making AI more human-like…',
+    feedbackContactRequired: 'Please provide your contact info (Email/WeChat/WhatsApp, etc.)',
+    feedbackContentRequired: 'Please enter your feedback',
+    feedbackSubmitBtn: 'Submit Feedback',
+    feedbackSubmitting: 'Submitting…',
+    feedbackCancelBtn: 'Cancel',
+    feedbackSuccessTitle: 'Thank You!',
+    feedbackSuccessDesc: 'Your feedback has been received. Our team will review it closely.',
+    feedbackCloseBtn: 'Close'
   },
 
   ja: {
