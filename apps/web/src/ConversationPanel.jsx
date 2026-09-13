@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { post } from './api.js';
-import { t } from './i18n.js';
+import { t, generateVerdictShareText } from './i18n.js';
 import { playSfx } from './audio.js';
 
-export default function ConversationPanel({uuid,language='zh',conversation,partnerTyping=false,onChange,onClose}){
+export default function ConversationPanel({uuid,language='zh',conversation,partnerTyping=false,onChange,onClose,nickname=''}){
   const [text,setText]=useState(''); const [busy,setBusy]=useState(false); const [showOriginal,setShowOriginal]=useState({}); const [error,setError]=useState('');
   const [isComposing, setIsComposing] = useState(false);
+  const [copiedToast, setCopiedToast] = useState(false);
   const messagesEndRef = React.useRef(null);
   const lastTypingPingRef = React.useRef(0);
 
@@ -77,6 +78,43 @@ export default function ConversationPanel({uuid,language='zh',conversation,partn
     onClose();
   };
 
+  const handleShareVerdict = async () => {
+    const inviteUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}/?invite=${encodeURIComponent(nickname || 'BundWalker')}`
+      : 'https://whoisai.xyz';
+
+    const shareText = generateVerdictShareText({
+      conversation,
+      playerName: nickname,
+      language,
+      inviteUrl
+    });
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: 'WHO IS AI?',
+          text: shareText,
+          url: inviteUrl
+        });
+        return;
+      } catch (err) {
+        // Fallback to clipboard if share modal cancelled/unsupported
+      }
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(shareText);
+        setCopiedToast(true);
+        playSfx('click');
+        setTimeout(() => setCopiedToast(false), 3000);
+      } catch (e) {
+        setError(e.message);
+      }
+    }
+  };
+
   const myMessages=conversation.messages||[];
   const isMyMsg=m=>m.senderId!==conversation.other.id;
   const isFreeChat=Boolean(conversation.alreadyJudged);
@@ -88,9 +126,9 @@ export default function ConversationPanel({uuid,language='zh',conversation,partn
   const isWaitingForReply = !conversation.revealed && !partnerTyping && (isLastMsgMine || isApproachedWaiting);
 
   const guessLabels = {
-    human: t('humanVerdict', language),
-    ai: t('aiVerdict', language),
-    not_sure: t('notSureVerdict', language)
+    human: t('guessHumanBtn', language),
+    ai: t('guessAiBtn', language),
+    not_sure: t('guessNotSureBtn', language)
   };
 
   return <div className="conversation glass">
@@ -149,7 +187,13 @@ export default function ConversationPanel({uuid,language='zh',conversation,partn
       <div className="identity">{conversation.result.targetType === 'human' ? t('humanVerdict', language) : t('aiVerdict', language)} {conversation.result.model && <small style={{display:'block',fontSize:'13px',color:'#7ce6d8',fontWeight:500,letterSpacing:'0.04em',marginTop:'4px'}}>{conversation.result.model}</small>}</div>
       <div className="delta">{t('pointDelta', language, { delta: conversation.result.delta > 0 ? '+1' : conversation.result.delta < 0 ? '−1' : '0' })}</div>
       <p>{t('youGuessed', language, { guess: guessLabels[conversation.result.guess] || conversation.result.guess })}</p>
-      <button className="primary" onClick={handleClose}>{t('keepWalking', language)}</button>
+      <div className="reveal-actions">
+        <button className="share-btn glass" onClick={handleShareVerdict}>
+          {t('shareReportBtn', language)}
+        </button>
+        <button className="primary" onClick={handleClose}>{t('keepWalking', language)}</button>
+      </div>
+      {copiedToast && <div className="share-toast">{t('copiedReportToast', language)}</div>}
     </div> : <>
       <div className="composer">
         <input 

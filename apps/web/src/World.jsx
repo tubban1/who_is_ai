@@ -24,13 +24,14 @@ function Asset({url,position,scale=1,rotation=[0,0,0],tint}){
 
 import CharacterAvatar from './CharacterAvatar.jsx';
 import CityLightShow from './CityLightShow.jsx';
+import RiversideTrees from './RiversideTrees.jsx';
 
 function getGroundHeight(z) {
   // Elevated Bund sightseeing promenade is a level granite observation deck at height 1.2m
   return 1.2;
 }
 
-function Avatar({ p, near, conversationOpen }) {
+function Avatar({ p, near, conversationOpen, isTalking }) {
   const groupRef = useRef();
   const [moving, setMoving] = React.useState(false);
   const targetPos = useRef(new THREE.Vector3(p.x, getGroundHeight(p.z || 0), p.z || 0));
@@ -71,6 +72,7 @@ function Avatar({ p, near, conversationOpen }) {
         id={p.id}
         displayName={p.displayName}
         isNear={near}
+        isTalking={isTalking}
         moving={moving}
         hideBadge={conversationOpen}
       />
@@ -81,7 +83,7 @@ function Avatar({ p, near, conversationOpen }) {
 import { t } from './i18n.js';
 import { playSfx } from './audio.js';
 
-function LocalPlayer({strangers,onNearest,onMoved,conversationOpen,language='zh',touchInput=null}){
+function LocalPlayer({strangers,onNearest,onMoved,conversationOpen,language='zh',touchInput=null,conversation=null,uuid=null}){
   const ref=useRef();
   const keys=useRef({});
   const {camera}=useThree();
@@ -90,6 +92,14 @@ function LocalPlayer({strangers,onNearest,onMoved,conversationOpen,language='zh'
   const lastEncounterId=useRef(null);
   const lastEncounterSoundTime=useRef(0);
   const [moving, setMoving] = React.useState(false);
+  const currentLookAt = useRef(new THREE.Vector3(0, 7, -65));
+  const lockedPartnerRef = useRef(null);
+
+  useEffect(()=>{
+    if (!conversationOpen) {
+      lockedPartnerRef.current = null;
+    }
+  }, [conversationOpen]);
 
   useEffect(()=>{
     const d=e=>keys.current[e.code]=true, u=e=>keys.current[e.code]=false;
@@ -134,9 +144,52 @@ function LocalPlayer({strangers,onNearest,onMoved,conversationOpen,language='zh'
     const p=ref.current.position;
     p.y = getGroundHeight(p.z);
 
-    const desired=new THREE.Vector3(p.x, p.y + 2.4, p.z + 5.2);
-    camera.position.lerp(desired, 1 - Math.pow(.002, dt));
-    camera.lookAt(p.x, p.y + 5.8, p.z - 65);
+    if (conversationOpen) {
+      // Find and permanently lock the conversation partner for the dialogue duration
+      let partner = null;
+      const partnerId = conversation?.other?.id || conversation?.targetPublicId || conversation?.initiatorPublicId;
+
+      if (lockedPartnerRef.current) {
+        partner = strangers.find(s => s.id === lockedPartnerRef.current);
+      }
+      if (!partner && partnerId) {
+        partner = strangers.find(s => s.id === partnerId);
+        if (partner) lockedPartnerRef.current = partner.id;
+      }
+      if (!partner && nearestRef.current) {
+        partner = nearestRef.current;
+        lockedPartnerRef.current = partner.id;
+      }
+
+      if (partner) {
+        // Cinematic Portrait Camera: Lock firmly onto partner's face
+        const dx = p.x - partner.x;
+        const dz = p.z - partner.z;
+        const dist = Math.max(1.8, Math.hypot(dx, dz));
+        const nx = dx / dist;
+        const nz = dz / dist;
+        const desiredCam = new THREE.Vector3(
+          partner.x + nx * 2.2 + (-nz) * 0.38,
+          p.y + 1.58,
+          partner.z + nz * 2.2 + (nx) * 0.38
+        );
+        const desiredLook = new THREE.Vector3(partner.x, p.y + 1.54, partner.z);
+        const lerpCam = 1 - Math.pow(0.003, dt);
+        camera.position.lerp(desiredCam, lerpCam);
+        currentLookAt.current.lerp(desiredLook, lerpCam);
+        camera.lookAt(currentLookAt.current);
+      } else {
+        const desired = new THREE.Vector3(p.x, p.y + 2.4, p.z + 5.2);
+        camera.position.lerp(desired, 1 - Math.pow(.002, dt));
+        currentLookAt.current.lerp(new THREE.Vector3(p.x, p.y + 5.8, p.z - 65), 1 - Math.pow(.002, dt));
+        camera.lookAt(currentLookAt.current);
+      }
+    } else {
+      const desired = new THREE.Vector3(p.x, p.y + 2.4, p.z + 5.2);
+      camera.position.lerp(desired, 1 - Math.pow(.002, dt));
+      currentLookAt.current.lerp(new THREE.Vector3(p.x, p.y + 5.8, p.z - 65), 1 - Math.pow(.002, dt));
+      camera.lookAt(currentLookAt.current);
+    }
 
     // Proximity encounter with hysteresis (entry: 3.8m, exit: 4.6m)
     if (conversationOpen) {
@@ -184,25 +237,46 @@ function LocalPlayer({strangers,onNearest,onMoved,conversationOpen,language='zh'
         displayName={t('youAvatar', language)}
         isPlayer={true}
         moving={moving}
+        isTalking={conversationOpen}
         hideBadge={conversationOpen}
       />
     </group>
   );
 }
 
-export default function World({strangers,onNearest,onPlayerMoved,conversationOpen,language='zh',touchInput=null}){
+export default function World({strangers,onNearest,onPlayerMoved,conversationOpen,language='zh',touchInput=null,timeOfDay='night',conversation=null,uuid=null}){
+  const [nearestId, setNearestId] = React.useState(null);
+  const handleNearest = React.useCallback((n) => {
+    setNearestId(n?.id || null);
+    if (onNearest) onNearest(n);
+  }, [onNearest]);
+
+  const partnerId = conversation?.other?.id || conversation?.targetPublicId || conversation?.initiatorPublicId;
+
   return <>
     {/* Shanghai The Bund & Lujiazui Dynamic Light Show & Megacity Environment */}
     <ErrorBoundary3D fallback={null}>
       <Suspense fallback={null}>
-        <CityLightShow url="/assets/plaza_environment.glb?v=shanghai_v10_postcard" />
+        <CityLightShow timeOfDay={timeOfDay} />
       </Suspense>
     </ErrorBoundary3D>
     {/* Flowing Huangpu River with sparkling ripples & zero-flicker depth offset */}
-    <RiverWater />
+    <RiverWater timeOfDay={timeOfDay} />
+    <RiversideTrees />
     {/* Dynamic Strangers (AI / Humans) */}
-    {strangers.map(s=><Avatar p={s} key={s.id} conversationOpen={conversationOpen}/>)}
+    {strangers.map(s => {
+      const isPartner = conversationOpen && (partnerId ? partnerId === s.id : nearestId === s.id);
+      return (
+        <Avatar
+          p={s}
+          key={s.id}
+          near={nearestId === s.id && !conversationOpen}
+          isTalking={isPartner}
+          conversationOpen={conversationOpen}
+        />
+      );
+    })}
     {/* Local Controllable Player */}
-    <LocalPlayer strangers={strangers} onNearest={onNearest} onMoved={onPlayerMoved} conversationOpen={conversationOpen} language={language} touchInput={touchInput}/>
+    <LocalPlayer strangers={strangers} onNearest={handleNearest} onMoved={onPlayerMoved} conversationOpen={conversationOpen} conversation={conversation} uuid={uuid} language={language} touchInput={touchInput}/>
   </>;
 }

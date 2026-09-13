@@ -122,6 +122,34 @@ npm run generate-assets
 
 A Blender-side generation reference is included at `assets/blender/generate_scene.py`.
 
+The React client uses the newer `citizen_realistic.glb` and `bund_realistic.glb` assets.
+They add adult proportions and articulated limbs, fabric normal maps, granite paving,
+window textures, restrained landmark lighting, and local environment reflections.
+Their editable projects are `assets/blender/citizen_realistic.blend` and
+`assets/blender/bund_realistic.blend`. These are original procedural game assets.
+
+Regenerate this art pass with Blender (no add-ons or external downloads needed):
+
+```bash
+/Applications/Blender.app/Contents/MacOS/Blender --background --python assets/blender/build_realism_pass.py
+```
+
+Append `-- --avatar-only` or `-- --environment-only` to rebuild one asset. The script
+keeps `shanghai_bund.blend` as its unchanged source, embeds textures in the GLBs,
+and batches static environment surfaces for the browser. Avatar group names are
+the animation contract used in `CharacterAvatar.jsx`; keep those names when editing.
+The avatar command also renders `assets/blender/citizen_preview.png` for inspection.
+
+Each successful entry into the React client randomly selects daylight or night,
+with equal probability. The sun/moon button switches the current visit's appearance.
+This is a local visual setting; players continue to share the same multiplayer world.
+Daylight includes moving clouds, slowly changing sunlight, and wind-driven tree
+shadows. Night enables animated facade lighting and bloom. Aurora Plaza's dark LED
+screen displays a red heart with two pulses per 2.6-second cycle and a moving scan
+line; the river's approximate red reflections use the same pulse timing. These
+effects use local Three.js shaders and the existing Blender models, with no remote
+rendering service or additional runtime package required.
+
 ## Tests
 
 ```bash

@@ -1,6 +1,7 @@
 // When running in production browser, always use relative path '' so requests go to the same domain (Nginx /api)
-// When running locally on Vite dev server (port 5173), fallback to http://localhost:8787
-const isLocalDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port === '5173';
+// When running locally on Vite dev server (port 5173, 5174, etc.), fallback to http://localhost:8787
+const isLocalHost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const isLocalDev = isLocalHost && window.location.port !== '8787' && window.location.port !== '';
 export const API = import.meta.env.VITE_SERVER_URL || (isLocalDev ? 'http://localhost:8787' : '');
 
 export async function post(path, data) {

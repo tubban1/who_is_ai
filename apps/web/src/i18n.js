@@ -25,11 +25,14 @@ export const TRANSLATIONS = {
     myLanguageLabel: '界面与对话语言',
     enterWorld: '进入世界',
     uuidNotice: '您的匿名通行证保存在本地浏览器中，下次进入将保留您的积分与战绩。',
+    friendInvitedBanner: '你的好友 {inviter} 正在外滩向你发起图灵测试挑战！快进入世界找出他们吧',
 
     // HUD Top & Controls
     liveWorld: '外滩实景世界',
     scoreLabel: '积分',
-        globalLeaderboardBtn: '🏆 全球榜单',
+    globalLeaderboardBtn: '🏆 全球榜单',
+    inviteFriendsBtn: '邀请同服',
+    copiedInviteToast: '专属邀请链接已复制！好友点开即可进入同一外滩世界与你漫步切磋',
     audioBgmToggle: '音乐',
     audioSfxToggle: '音效',
     audioOn: '开',
@@ -63,6 +66,8 @@ export const TRANSLATIONS = {
     youGuessed: '你的最终判断是 {guess}。',
     pointDelta: '{delta} 分',
     keepWalking: '继续漫步',
+    shareReportBtn: '📤 分享战报 / 挑战好友',
+    copiedReportToast: '战报已复制到剪贴板！快发给好友或社群发起对决挑战吧',
     composerPlaceholder: '输入消息…',
     composerRoundsLocked: '已满五轮对话 — 请做出你的最终评判',
     sendBtn: '发送',
@@ -150,11 +155,14 @@ export const TRANSLATIONS = {
     myLanguageLabel: 'UI & Chat Language',
     enterWorld: 'ENTER THE WORLD',
     uuidNotice: 'Your anonymous UUID stays in this browser, so your score returns next time.',
+    friendInvitedBanner: 'Your friend {inviter} is roaming the Bund and challenged you to a Turing Test!',
 
     // HUD Top & Controls
     liveWorld: 'LIVE WORLD',
     scoreLabel: 'SCORE',
     globalLeaderboardBtn: '🏆 Global',
+    inviteFriendsBtn: 'Invite Friends',
+    copiedInviteToast: 'Invite link copied! Friends can join this world directly to duel with you.',
     audioBgmToggle: 'Music',
     audioSfxToggle: 'SFX',
     audioOn: 'ON',
@@ -188,6 +196,8 @@ export const TRANSLATIONS = {
     youGuessed: 'You guessed {guess}.',
     pointDelta: '{delta} point',
     keepWalking: 'KEEP WALKING',
+    shareReportBtn: '📤 Share Verdict / Duel Friends',
+    copiedReportToast: 'Verdict copied to clipboard! Share it with friends to challenge them.',
     composerPlaceholder: 'Say something…',
     composerRoundsLocked: 'Five rounds reached — make your guess',
     sendBtn: 'Send',
@@ -275,11 +285,14 @@ export const TRANSLATIONS = {
     myLanguageLabel: '言語設定',
     enterWorld: 'ワールドに入る',
     uuidNotice: '匿名のUUIDはブラウザに保存され、次回アクセス時もスコアが保持されます。',
+    friendInvitedBanner: '友達の {inviter} が外灘からチューリングテストの挑戦状を送ってきました！',
 
     // HUD Top & Controls
     liveWorld: '外灘ライブワールド',
     scoreLabel: 'スコア',
     globalLeaderboardBtn: '🏆 ランキング',
+    inviteFriendsBtn: '友達を招待',
+    copiedInviteToast: '招待リンクをコピーしました！友達が直接同じ外灘ワールドに参加できます。',
     controlMove: '移動',
     controlRun: '走る',
     controlTalk: '話す',
@@ -309,6 +322,8 @@ export const TRANSLATIONS = {
     youGuessed: 'あなたの最終判定は {guess} でした。',
     pointDelta: '{delta} ポイント',
     keepWalking: '探索を続ける',
+    shareReportBtn: '📤 戦績をシェア / 友達に挑戦',
+    copiedReportToast: '戦績をクリップボードにコピーしました！友達に挑戦状を送りましょう。',
     composerPlaceholder: 'メッセージを入力…',
     composerRoundsLocked: '5ラウンド終了 — 最終判定を行ってください',
     sendBtn: '送信',
@@ -690,6 +705,41 @@ export function t(key, lang = 'zh', params = {}) {
     }
   }
   return val;
+}
+
+export function generateVerdictShareText({ conversation, playerName, language = 'zh', inviteUrl = '' }) {
+  const isWin = conversation?.result?.delta > 0;
+  const isLose = conversation?.result?.delta < 0;
+  const icon = isWin ? '🎯' : isLose ? '🎭' : '🤔';
+  const outcomeText = isWin 
+    ? (language === 'zh' ? '识破成功！一眼看穿' : 'Spot on! Caught them red-handed')
+    : isLose 
+    ? (language === 'zh' ? '惨遭欺骗！被演技折服' : 'Bamboozled! Fooled by the act')
+    : (language === 'zh' ? '难分伯仲！陷入迷茫' : 'Uncertain! A tough call');
+
+  const actualIdentity = conversation?.result?.targetType === 'human'
+    ? (language === 'zh' ? '真人 (HUMAN)' : 'Real Human')
+    : `${language === 'zh' ? 'AI 假扮者' : 'AI Impostor'}${conversation?.result?.model ? ` [${conversation.result.model}]` : ''}`;
+
+  const guessMapZh = { human: '真人', ai: 'AI', not_sure: '不确定' };
+  const guessMapEn = { human: 'Human', ai: 'AI', not_sure: 'Not Sure' };
+  const myGuess = (language === 'zh' ? guessMapZh : guessMapEn)[conversation?.result?.guess] || conversation?.result?.guess || '?';
+
+  const finalUrl = inviteUrl || (typeof window !== 'undefined' ? window.location.href : 'https://whoisai.xyz');
+
+  if (language === 'zh') {
+    return `🏙️【外滩图灵测试 · 对决战报】\n` +
+      `${icon} 战果：${outcomeText}\n` +
+      `💬 我的判断：[${myGuess}] ｜ 对方真相：[${actualIdentity}]\n` +
+      `🔥 赛博外滩漫步，真假莫辨！你能识破谁是大模型吗？\n` +
+      `👉 点此直接入场与我同服切磋：${finalUrl}`;
+  }
+
+  return `🏙️ WHO IS AI? — Shanghai Bund Turing Duel\n` +
+    `${icon} Verdict: ${outcomeText}\n` +
+    `💬 My Guess: [${myGuess}] | Real Identity: [${actualIdentity}]\n` +
+    `Can you tell real humans from LLMs roaming the Shanghai Bund?\n` +
+    `👉 Join my world & duel me here: ${finalUrl}`;
 }
 
 export const LANDMARK_LOCALIZATIONS = {

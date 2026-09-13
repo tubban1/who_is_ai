@@ -25,6 +25,7 @@ await loadEnvFile();
 const PORT = Number(process.env.SERVER_PORT || 8787);
 const STANDALONE = path.join(ROOT, 'apps/standalone');
 const WEB_PUBLIC = path.join(ROOT, 'apps/web/public');
+const WEB_DIST = path.join(ROOT, 'apps/web/dist');
 const aiAgents = createAiPopulation(Number(process.env.AI_POPULATION || 18));
 const humans = new Map(); // uuid -> runtime
 const publicToUuid = new Map();
@@ -495,20 +496,63 @@ const server=http.createServer(async(req,res)=>{
       return json(res,200,{conversation:publicConversation(c,b.uuid),player});
     }
 
-    if(req.method==='GET') {
+    if(req.method==='GET' || req.method==='HEAD') {
       let filePath=null;
-      if(u.pathname==='/') filePath=path.join(STANDALONE,'index.html');
-      else if(u.pathname==='/standalone.js') filePath=path.join(STANDALONE,'standalone.js');
-      else if(u.pathname==='/standalone.css') filePath=path.join(STANDALONE,'standalone.css');
-      else if(u.pathname.startsWith('/audio/')) filePath=path.join(WEB_PUBLIC,u.pathname);
-      else if(u.pathname.startsWith('/assets/')) filePath=path.join(WEB_PUBLIC,u.pathname);
-      else if(!u.pathname.startsWith('/api/')) filePath=path.join(STANDALONE,'index.html');
+      const webDistIndex = path.join(WEB_DIST, 'index.html');
+      const hasWebDist = await fs.access(webDistIndex).then(()=>true).catch(()=>false);
+
+      if (u.pathname === '/' || u.pathname === '/index.html') {
+        filePath = hasWebDist ? webDistIndex : path.join(STANDALONE, 'index.html');
+      } else if (u.pathname === '/standalone' || u.pathname === '/standalone/') {
+        filePath = path.join(STANDALONE, 'index.html');
+      } else if (u.pathname === '/standalone.js') {
+        filePath = path.join(STANDALONE, 'standalone.js');
+      } else if (u.pathname === '/standalone.css') {
+        filePath = path.join(STANDALONE, 'standalone.css');
+      } else if (u.pathname.startsWith('/assets/')) {
+        const distAsset = path.join(WEB_DIST, u.pathname);
+        const hasDist = await fs.access(distAsset).then(()=>true).catch(()=>false);
+        filePath = hasDist ? distAsset : path.join(WEB_PUBLIC, u.pathname);
+      } else if (u.pathname.startsWith('/audio/')) {
+        const distAudio = path.join(WEB_DIST, u.pathname);
+        const hasAudio = await fs.access(distAudio).then(()=>true).catch(()=>false);
+        filePath = hasAudio ? distAudio : path.join(WEB_PUBLIC, u.pathname);
+      } else if (!u.pathname.startsWith('/api/')) {
+        const directDistFile = path.join(WEB_DIST, u.pathname);
+        const hasDirectDist = await fs.access(directDistFile).then(()=>true).catch(()=>false);
+        if (hasDirectDist) {
+          filePath = directDistFile;
+        } else if (hasWebDist) {
+          filePath = webDistIndex; // Single Page Application fallback
+        } else {
+          filePath = path.join(STANDALONE, 'index.html');
+        }
+      }
+
       if(filePath) {
         try {
           const data=await fs.readFile(filePath);
           const ext=path.extname(filePath);
-          const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.wav':'audio/wav','.glb':'model/gltf-binary'}[ext]||'application/octet-stream';
-          cors(res);res.writeHead(200,{'Content-Type':mime,'Cache-Control':ext==='.html'?'no-cache':'public, max-age=3600'});return res.end(data);
+          const mime={
+            '.html':'text/html; charset=utf-8',
+            '.js':'text/javascript; charset=utf-8',
+            '.css':'text/css; charset=utf-8',
+            '.wav':'audio/wav',
+            '.glb':'model/gltf-binary',
+            '.png':'image/png',
+            '.jpg':'image/jpeg',
+            '.jpeg':'image/jpeg',
+            '.svg':'image/svg+xml',
+            '.ico':'image/x-icon',
+            '.json':'application/json'
+          }[ext]||'application/octet-stream';
+          cors(res);
+          res.writeHead(200,{
+            'Content-Type':mime,
+            'Content-Length':data.length,
+            'Cache-Control':ext==='.html' ? 'no-cache' : 'public, max-age=31536000, immutable'
+          });
+          return req.method === 'HEAD' ? res.end() : res.end(data);
         } catch {}
       }
     }

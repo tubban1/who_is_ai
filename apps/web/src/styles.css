@@ -19,6 +19,9 @@
 .audio-toggle-btn:hover{background:rgba(20,38,64,.95);border-color:#75f2da}
 .audio-toggle-btn.muted{color:#8294ab;border-color:rgba(255,255,255,.14);background:rgba(10,18,30,.7)}
 .top-actions{position:absolute;right:18px;top:18px;display:flex;align-items:center;gap:10px;z-index:10}
+.atmosphere-toggle{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:12px;color:#e8f3ff;font-size:11px;font-weight:700;cursor:pointer;min-height:34px}
+.atmosphere-toggle:hover{border-color:#eac687}
+.atmosphere-toggle:focus-visible{outline:2px solid #eac687;outline-offset:3px}
 .rank-button-inline{border-radius:14px;padding:9px 15px;color:#e8f3ff;cursor:pointer;font-size:12px;font-weight:700;border:1px solid rgba(170,210,255,.16);background:linear-gradient(135deg,rgba(18,29,46,.82),rgba(7,13,25,.74))}
 .rank-button-inline:hover{border-color:#75f2da}
 @media(max-width:700px){.top-actions{right:10px;top:10px;gap:6px}}
@@ -304,6 +307,9 @@
     right: 10px;
     top: 10px;
     gap: 6px;
+    max-width: calc(100vw - 200px);
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
   .audio-toggle-btn {
     padding: 6px 9px;
@@ -316,6 +322,7 @@
     padding: 6px 10px;
     font-size: 11px;
   }
+  .atmosphere-toggle { padding:6px 9px; font-size:10px; min-height:30px; }
   .conversation {
     position: fixed !important;
     left: 8px !important;
@@ -725,5 +732,108 @@
   }
   .feedback-cards-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ==================== Viral Growth & Sharing ==================== */
+.invite-button-inline {
+  border-radius: 14px;
+  padding: 9px 15px;
+  color: #75f2da;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid rgba(117, 242, 218, 0.35);
+  background: linear-gradient(135deg, rgba(14, 36, 48, 0.85), rgba(7, 18, 30, 0.8));
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.invite-button-inline:hover {
+  border-color: #75f2da;
+  background: linear-gradient(135deg, rgba(20, 52, 68, 0.95), rgba(9, 26, 44, 0.9));
+  box-shadow: 0 0 16px rgba(117, 242, 218, 0.25);
+}
+
+.invite-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  margin-bottom: 18px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(117, 242, 218, 0.15), rgba(121, 189, 244, 0.1));
+  border: 1px solid rgba(117, 242, 218, 0.4);
+  color: #bffbf1;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+  animation: pulseGlow 3s infinite alternate;
+}
+
+.invite-banner-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.invite-banner-text {
+  flex: 1;
+}
+
+.reveal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.share-btn {
+  width: 100%;
+  padding: 13px 16px;
+  border-radius: 13px;
+  border: 1px solid rgba(117, 242, 218, 0.45);
+  background: linear-gradient(90deg, rgba(94, 231, 210, 0.18), rgba(121, 189, 244, 0.18));
+  color: #75f2da;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.02em;
+}
+
+.share-btn:hover {
+  background: linear-gradient(90deg, rgba(94, 231, 210, 0.3), rgba(121, 189, 244, 0.3));
+  border-color: #75f2da;
+  box-shadow: 0 0 20px rgba(117, 242, 218, 0.35);
+  transform: translateY(-1px);
+}
+
+.share-toast {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: rgba(14, 38, 48, 0.95);
+  border: 1px solid #75f2da;
+  color: #c9faf3;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.toast.toast-success {
+  background: linear-gradient(135deg, rgba(14, 45, 45, 0.95), rgba(7, 26, 32, 0.95));
+  color: #bffbf1;
+  border: 1px solid rgba(117, 242, 218, 0.5);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(117, 242, 218, 0.25);
+}
+
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 8px rgba(117, 242, 218, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 22px rgba(117, 242, 218, 0.45);
   }
 }

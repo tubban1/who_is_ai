@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Stars } from '@react-three/drei';
 import { API, get, post } from './api.js';
 import World from './World.jsx';
+import NightLighting from './NightLighting.jsx';
+import AtmosphereSky from './AtmosphereSky.jsx';
+import SceneEffects from './SceneEffects.jsx';
+import { ATMOSPHERES, atmosphereLabels, chooseTimeOfDay } from './atmosphere.js';
 import ConversationPanel from './ConversationPanel.jsx';
 import Leaderboard from './Leaderboard.jsx';
 import FeedbackModal from './FeedbackModal.jsx';
@@ -18,6 +21,8 @@ import { getRandomName } from './names.js';
 
 export default function App(){
   const [started,setStarted]=useState(false); const [uuid]=useState(ensureUuid);
+  const [timeOfDay, setTimeOfDay] = useState('day');
+  const atmosphere = ATMOSPHERES[timeOfDay];
   const initialLang = localStorage.getItem('who-is-ai.lang') || ((navigator.language || 'zh').split('-')[0]);
   const [language,setLanguage]=useState(initialLang);
   const [nickname,setNickname]=useState(() => {
@@ -83,7 +88,8 @@ export default function App(){
     try{
       const name=(nickname.trim()||getRandomName(language)).slice(0,24);
       localStorage.setItem('who-is-ai.name',name);localStorage.setItem('who-is-ai.lang',language);
-      const s=await post('/api/session',{uuid,displayName:name,language}); setPlayer(s.player); setStarted(true);
+      const s=await post('/api/session',{uuid,displayName:name,language});
+      setTimeOfDay(chooseTimeOfDay()); setPlayer(s.player); setStarted(true);
       setTimeout(()=>{
         const bgmPref = getStoredBgmPreference();
         if(bgmPref){
@@ -96,6 +102,36 @@ export default function App(){
       },100);
     }catch(e){setError(e.message)}
   };
+
+  const inviteFrom = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('invite') || null;
+  }, []);
+
+  const [inviteToast, setInviteToast] = useState(false);
+  const handleInviteFriend = async () => {
+    const inviteUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}/?invite=${encodeURIComponent(nickname || 'BundWalker')}`
+      : 'https://whoisai.xyz';
+    
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(inviteUrl);
+        playSfx('click');
+        setInviteToast(true);
+        setTimeout(() => setInviteToast(false), 3500);
+      } catch (e) {
+        setError(e.message);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('autostart') && !started) {
+      enter();
+    }
+  }, []);
 
   const nearestRef = useRef(nearest);
   nearestRef.current = nearest;
@@ -236,6 +272,12 @@ export default function App(){
   if(!started)return <div className="landing">
     <div className="landing-orb"></div>
     <div className="landing-card glass">
+      {inviteFrom && (
+        <div className="invite-banner glass">
+          <span className="invite-banner-icon">💌</span>
+          <span className="invite-banner-text">{t('friendInvitedBanner', language, { inviter: inviteFrom })}</span>
+        </div>
+      )}
       <div className="eyebrow">{t('globalTuringTest', language)}</div>
       <h1>WHO IS <span>AI?</span></h1>
       <p className="tagline">{t('tagline', language)}</p>
@@ -286,25 +328,26 @@ export default function App(){
     </div>
   </div>;
 
-  return <div className="game-shell">
+  return <div className="game-shell" data-time-of-day={timeOfDay}>
     <Canvas
       dpr={[1, typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 1.5) : 1]}
       gl={{ powerPreference: 'high-performance', antialias: true, failIfMajorPerformanceCaveat: false }}
       shadows
       camera={{position:[0,5,8],fov:60,near:0.8,far:850}}
     >
-      <color attach="background" args={['#030913']}/>
-      {/* Soft atmospheric depth fog (220m - 650m) */}
-      <fog attach="fog" args={['#030913',220,650]}/>
-      <ambientLight intensity={0.9}/>
-      <directionalLight position={[30,50,20]} intensity={2.4} castShadow shadow-mapSize={[1024,1024]}/>
-      <pointLight position={[0,9,-6]} intensity={45} distance={55} color="#fed7aa"/>
-      <Stars radius={300} depth={90} count={1200} factor={3.5}/>
+      <color attach="background" args={[atmosphere.sky]}/>
+      <fog attach="fog" args={[atmosphere.fog, atmosphere.fogNear, atmosphere.fogFar]}/>
+      <AtmosphereSky timeOfDay={timeOfDay} />
+      <NightLighting timeOfDay={timeOfDay} />
+      <SceneEffects timeOfDay={timeOfDay} conversationOpen={!!conversation} />
       <World
+        timeOfDay={timeOfDay}
         strangers={world.strangers||[]}
         onNearest={setNearest}
         onPlayerMoved={onPlayerMoved}
         conversationOpen={!!conversation}
+        conversation={conversation}
+        uuid={uuid}
         language={language}
         touchInput={touchInput}
       />
@@ -315,6 +358,12 @@ export default function App(){
       <div className="score">{t('scoreLabel', language)} <strong>{player?.score??0}</strong></div>
     </header>
     <div className="top-actions">
+      <button className="atmosphere-toggle glass" data-testid="atmosphere-toggle"
+        title={atmosphereLabels(language)[2]}
+        onClick={() => setTimeOfDay(current => current === 'day' ? 'night' : 'day')}>
+        <span aria-hidden="true">{timeOfDay === 'day' ? '☀️' : '🌙'}</span>
+        <span>{atmosphereLabels(language)[timeOfDay === 'day' ? 0 : 1]}</span>
+      </button>
       <button
         className={`audio-toggle-btn glass ${!bgmActive ? 'muted' : ''}`}
         onClick={() => {
@@ -330,6 +379,7 @@ export default function App(){
       <button
         className={`audio-toggle-btn glass ${!sfxActive ? 'muted' : ''}`}
         onClick={() => {
+          playSfx('click');
           const next = toggleSfx();
           setSfxActive(next);
           if (next) playSfx('click');
@@ -338,6 +388,10 @@ export default function App(){
       >
         <span>{sfxActive ? '🔔' : '🔕'}</span>
         <span>{t('audioSfxToggle', language)}: {sfxActive ? t('audioOn', language) : t('audioOff', language)}</span>
+      </button>
+      <button className="invite-button-inline glass" onClick={handleInviteFriend} title={t('inviteFriendsBtn', language)}>
+        <span aria-hidden="true">🔗</span>
+        <span>{t('inviteFriendsBtn', language)}</span>
       </button>
       <button className="rank-button-inline glass" onClick={() => { playSfx('click'); setLeaderboardOpen(true); }}>
         {t('globalLeaderboardBtn', language)}
@@ -371,9 +425,10 @@ export default function App(){
         <small>{t('areTheyHuman', language)}</small>
       </div>
     </div>}
-    {conversation&&<ConversationPanel uuid={uuid} language={language} conversation={conversation} partnerTyping={partnerTyping || Boolean(conversation?.isPartnerTyping)} onChange={onConversationChange} onClose={()=>setConversation(null)}/>} 
+    {conversation&&<ConversationPanel uuid={uuid} language={language} conversation={conversation} partnerTyping={partnerTyping || Boolean(conversation?.isPartnerTyping)} onChange={onConversationChange} onClose={()=>setConversation(null)} nickname={nickname}/>} 
     {leaderboardOpen&&<Leaderboard player={player} onClose={()=>setLeaderboardOpen(false)} language={language}/>} 
     {feedbackOpen&&<FeedbackModal uuid={uuid} displayName={nickname} language={language} onClose={()=>setFeedbackOpen(false)}/>}
+    {inviteToast&&<div className="toast toast-success" onClick={()=>setInviteToast(false)}>{t('copiedInviteToast', language)}</div>}
     {error&&<div className="toast" onClick={()=>setError('')}>{error}</div>}
   </div>
 }
