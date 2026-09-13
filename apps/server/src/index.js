@@ -44,6 +44,31 @@ function addConversationTimer(cid, timer) {
   activeConversationTimers.get(cid).push(timer);
 }
 
+function calculateReadingDelay(lastUserText) {
+  const len = (lastUserText || '').length;
+  const base = 1200 + Math.random() * 400;
+  const perChar = 85 + Math.random() * 35;
+  return Math.min(6000, Math.max(1400, Math.round(base + len * perChar)));
+}
+
+function calculateTypingDuration(text, lang = 'zh') {
+  const trimmed = (text || '').trim();
+  const len = trimmed.length;
+  if (len === 0) return 1200;
+
+  const isCjk = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uffef\u4e00-\u9faf\uac00-\ud7af]/.test(trimmed) ||
+    ['zh', 'ja', 'ko'].includes(lang);
+
+  const msPerChar = isCjk ? (180 + Math.random() * 70) : (95 + Math.random() * 45);
+  const setupTime = 1000 + Math.random() * 500;
+  const reviewTime = Math.min(1200, Math.max(500, len * 25));
+  const total = setupTime + len * msPerChar + reviewTime;
+
+  const minFloor = Math.min(6000, 1800 + len * 80);
+  const maxCeil = Math.min(15000, 3500 + len * 250);
+  return Math.min(maxCeil, Math.max(minFloor, Math.round(total)));
+}
+
 const dbInfo = await initDb();
 console.log(`[server] persistence=${dbInfo.mode}`);
 
@@ -322,11 +347,11 @@ const server=http.createServer(async(req,res)=>{
           }
 
           // Natural cadence calculation:
-          // 1. Reading & reaction delay: 1100ms - 2200ms (reading the user's message)
-          const lastUserLen = (c.messages.at(-1)?.originalText?.length || 5);
-          const rawReadingDelay = Math.min(2200, Math.max(1100, lastUserLen * 45 + Math.random() * 400));
+          // 1. Reading & reaction delay: dynamically proportional to user's question length
+          const lastUserText = c.messages.at(-1)?.originalText || '';
+          const rawReadingDelay = calculateReadingDelay(lastUserText);
           const elapsed = Date.now() - startTime;
-          const initialReadWait = Math.max(200, rawReadingDelay - elapsed);
+          const initialReadWait = Math.max(300, rawReadingDelay - elapsed);
 
           // Phase 1: Reading period finishes -> AI begins typing Bubble 1
           const tTyping1 = setTimeout(() => {
@@ -335,7 +360,7 @@ const server=http.createServer(async(req,res)=>{
             sendSse(b.uuid, { type: 'partner_typing', conversationId: c.id, typing: true });
 
             const b1 = preparedBubbles[0];
-            const b1TypeDuration = Math.min(3000, Math.max(1300, b1.text.length * 80 + 700 + Math.random() * 300));
+            const b1TypeDuration = calculateTypingDuration(b1.text, reply.language);
 
             // Phase 2: Bubble 1 finishes typing -> send Bubble 1
             const tSend1 = setTimeout(() => {
@@ -358,14 +383,14 @@ const server=http.createServer(async(req,res)=>{
               // If there is a second bubble (Double-texting)
               if (preparedBubbles.length > 1) {
                 const b2 = preparedBubbles[1];
-                const pauseBetween = 500 + Math.random() * 400;
+                const pauseBetween = 800 + Math.random() * 600;
 
                 const tPause = setTimeout(() => {
                   if (!conversations.has(c.id) || c.revealed) return;
                   c.isPartnerTyping = true;
                   sendSse(b.uuid, { type: 'partner_typing', conversationId: c.id, typing: true });
 
-                  const b2TypeDuration = Math.min(2400, Math.max(1000, b2.text.length * 75 + 500 + Math.random() * 300));
+                  const b2TypeDuration = calculateTypingDuration(b2.text, reply.language);
                   const tSend2 = setTimeout(() => {
                     if (!conversations.has(c.id) || c.revealed) return;
                     c.isPartnerTyping = false;
@@ -596,9 +621,8 @@ setInterval(async ()=>{
     sendSse(human.uuid, { type: 'incoming_conversation', conversation: publicConversation(c, human.uuid) });
 
     // Step 1: Pauses for 1.1s - 1.6s (approaching, stopping, looking at each other)
-    const pauseBeforeTyping = 1100 + Math.random() * 500;
-    const icebreakerLen = (icebreaker.text || '').length;
-    const typeDuration = Math.min(3000, Math.max(1300, icebreakerLen * 85 + 700 + Math.random() * 300));
+    const pauseBeforeTyping = 1200 + Math.random() * 500;
+    const typeDuration = calculateTypingDuration(icebreaker.text, icebreaker.language);
 
     const t1 = setTimeout(() => {
       const liveC = conversations.get(id);
