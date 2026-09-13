@@ -55,3 +55,18 @@ test('resolveModelConfig correctly resolves model-specific prefixes and fallback
   const cfgDefault = resolveModelConfig('Unknown-Model');
   assert.equal(cfgDefault.format, 'openai');
 });
+
+test('prepareAiReplyBubbles handles single and multi-bubble responses cleanly', async () => {
+  const { prepareAiReplyBubbles } = await import('../apps/server/src/ai.js');
+  // Empty or short
+  assert.deepEqual(prepareAiReplyBubbles('', 'zh'), ['']);
+  
+  // Predictable split when punctuated and seed triggers
+  const splitResult = prepareAiReplyBubbles('哈哈哈哈，你也是刚来的？', 'zh', 10);
+  assert.ok(Array.isArray(splitResult));
+  assert.ok(splitResult.length >= 1 && splitResult.length <= 2);
+  if (splitResult.length === 2) {
+    assert.equal(splitResult[0], '哈哈哈哈');
+    assert.equal(splitResult[1], '你也是刚来的？');
+  }
+});

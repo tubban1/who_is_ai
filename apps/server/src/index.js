@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import { initDb, upsertPlayer, getPlayer, applyGuess, leaderboard, modelLeaderboard, impostorLeaderboard, hasJudged, saveFeedback, getFeedbacks } from './db.js';
-import { aiReply, translateText, generateIcebreaker } from './ai.js';
+import { aiReply, translateText, generateIcebreaker, prepareAiReplyBubbles } from './ai.js';
 import { createAiPopulation, tickAgents, distance, sceneObservation, getConfiguredModels, getRandomName } from './world.js';
 import { MAX_ROUNDS, GUESS, scoreGuess, sanitizeTarget, makeLocalizedMessage } from '../../../packages/shared/src/rules.js';
 
@@ -30,6 +30,20 @@ const humans = new Map(); // uuid -> runtime
 const publicToUuid = new Map();
 const sseClients = new Map();
 const conversations = new Map();
+const activeConversationTimers = new Map(); // conversationId -> Array of setTimeout handles
+
+function clearConversationTimers(cid) {
+  const list = activeConversationTimers.get(cid);
+  if (list) {
+    for (const t of list) clearTimeout(t);
+    activeConversationTimers.delete(cid);
+  }
+}
+function addConversationTimer(cid, timer) {
+  if (!activeConversationTimers.has(cid)) activeConversationTimers.set(cid, []);
+  activeConversationTimers.get(cid).push(timer);
+}
+
 const dbInfo = await initDb();
 console.log(`[server] persistence=${dbInfo.mode}`);
 
@@ -217,9 +231,6 @@ const server=http.createServer(async(req,res)=>{
         target.rotation = Math.atan2(-dx, -dz);
       }
 
-      // If target is human, only the receiver (targetUuid) sees "对方正在输入…" waiting for initiator to speak
-      // The initiator (b.uuid) does NOT see "对方正在输入…"
-      const isTargetHuman = Boolean(targetUuid);
       const c={
         id,
         initiatorUuid:b.uuid,
@@ -232,7 +243,7 @@ const server=http.createServer(async(req,res)=>{
         revealed:false,
         alreadyJudged,
         isPartnerTyping: false,
-        typingForRecipientUuid: isTargetHuman ? targetUuid : null,
+        typingForRecipientUuid: null,
         messages:[],
         createdAt:Date.now()
       };
@@ -274,11 +285,14 @@ const server=http.createServer(async(req,res)=>{
 
       const isAiPartner = (c.targetType === 'ai' && isInitiator) || (c.initiatorType === 'ai' && isHumanTarget);
       if(isAiPartner){
-        c.isPartnerTyping = true;
+        // Natural human delay: partner is reading/thinking, NOT typing immediately!
+        c.isPartnerTyping = false;
+        clearConversationTimers(c.id);
+
         const aiId = isInitiator ? c.targetPublicId : c.initiatorPublicId;
         const ai = runtimeByPublicId(aiId);
         
-        // Asynchronously generate AI reply with realistic typing cadence
+        // Asynchronously generate AI reply with realistic human cadence
         (async () => {
           const startTime = Date.now();
           let reply;
@@ -288,50 +302,116 @@ const server=http.createServer(async(req,res)=>{
             const lang = ai?.nativeLanguage || sender.language || 'en';
             reply = { text: lang === 'zh' ? '？我刚刚卡了一下，你说啥？' : 'yo sorry, I lagged for a sec, what?', language: lang }; 
           }
-          let backTr={text:reply.text,translated:false};
-          try{backTr=await translateText(reply.text,reply.language,sender.language);}catch{}
-          
-          // Realistic human typing delay (+50% extended):
-          // 1. Reading & reaction time: short question ~900-1650ms, longer question ~1800-2700ms
-          // 2. Typing speed: ~135-210ms per character with random jitter
-          // 3. Short answers (e.g. "哈哈", "yo", "？", "没在看") take ~1.95s - 3.0s
-          // 4. Medium answers take ~3.3s - 4.8s
-          // 5. Long answers take ~5.2s - 7.35s
-          const charCount = (reply.text || '').length;
-          const readTime = Math.min(1600, Math.max(700, (c.messages.at(-1)?.originalText?.length || 5) * 45)) + (Math.random() * 400 - 200);
-          const typeTime = charCount * (90 + Math.random() * 45);
-          const rawTargetDelay = (readTime + typeTime) * 1.5;
-          // Clamp between 1950ms (fast short punchy reply) and 7350ms (thoughtful long reply) (+50% from 1300ms/4900ms)
-          const targetDelay = Math.min(7350, Math.max(1950, rawTargetDelay));
-          const elapsed = Date.now() - startTime;
-          const waitMs = Math.max(150, targetDelay - elapsed);
-          
-          setTimeout(() => {
-            if (!conversations.has(c.id) || c.revealed) return;
-            c.isPartnerTyping = false;
-            c.messages.push({...makeLocalizedMessage({originalText:reply.text,sourceLanguage:reply.language,translatedText:backTr.translated?backTr.text:null,targetLanguage:sender.language,senderId:ai.id}),recipientUuid:b.uuid,translationUnavailable:Boolean(backTr.unavailable)});
-            sendSse(b.uuid, {type:'conversation_update', conversation:publicConversation(c,b.uuid)});
 
-            // Natural Early Departure: in round 3 or 4, if AI says goodbye/leaving, end conversation gracefully
-            const replyLower = reply.text.toLowerCase();
-            const isDeparting = (c.roundsUsed >= 3 && Math.random() < 0.22) ||
-              /溜了|走了|拜拜|下线|拍照去了|cya|bye|gotta go|wander|see ya/.test(replyLower);
-            if (isDeparting && !c.revealed) {
-              setTimeout(() => {
-                if (!conversations.has(c.id) || c.revealed) return;
-                ai.status = 'available';
-                ai.displayName = getRandomName(ai.nativeLanguage);
-                // Give AI a new target to walk away
-                ai.targetX = -50 + Math.random() * 100;
-                ai.targetZ = -8 + Math.random() * 12;
-                sender.status = 'available';
-                conversations.delete(c.id);
-                sendSse(b.uuid, { type: 'conversation_ended', conversationId: c.id });
-              }, 2200 + Math.random() * 1000);
-            }
-          }, waitMs);
+          if (!conversations.has(c.id) || c.revealed) return;
+
+          // Prepare 1 or 2 bubbles (multi-bubble / double-texting like real humans)
+          const bubbleTexts = prepareAiReplyBubbles(reply.text, reply.language, (ai?.seed || 0) + c.messages.length);
+          const preparedBubbles = [];
+          for (const bText of bubbleTexts) {
+            let trBubble = { text: bText, translated: false };
+            try { trBubble = await translateText(bText, reply.language, sender.language); } catch {}
+            preparedBubbles.push({
+              text: bText,
+              translatedText: trBubble.translated ? trBubble.text : null,
+              translationUnavailable: Boolean(trBubble.unavailable)
+            });
+          }
+
+          // Natural cadence calculation:
+          // 1. Reading & reaction delay: 1100ms - 2200ms (reading the user's message)
+          const lastUserLen = (c.messages.at(-1)?.originalText?.length || 5);
+          const rawReadingDelay = Math.min(2200, Math.max(1100, lastUserLen * 45 + Math.random() * 400));
+          const elapsed = Date.now() - startTime;
+          const initialReadWait = Math.max(200, rawReadingDelay - elapsed);
+
+          // Phase 1: Reading period finishes -> AI begins typing Bubble 1
+          const tTyping1 = setTimeout(() => {
+            if (!conversations.has(c.id) || c.revealed) return;
+            c.isPartnerTyping = true;
+            sendSse(b.uuid, { type: 'partner_typing', conversationId: c.id, typing: true });
+
+            const b1 = preparedBubbles[0];
+            const b1TypeDuration = Math.min(3000, Math.max(1300, b1.text.length * 80 + 700 + Math.random() * 300));
+
+            // Phase 2: Bubble 1 finishes typing -> send Bubble 1
+            const tSend1 = setTimeout(() => {
+              if (!conversations.has(c.id) || c.revealed) return;
+              c.isPartnerTyping = false;
+              c.messages.push({
+                ...makeLocalizedMessage({
+                  originalText: b1.text,
+                  sourceLanguage: reply.language,
+                  translatedText: b1.translatedText,
+                  targetLanguage: sender.language,
+                  senderId: ai.id
+                }),
+                recipientUuid: b.uuid,
+                translationUnavailable: b1.translationUnavailable
+              });
+              sendSse(b.uuid, { type: 'conversation_update', conversation: publicConversation(c, b.uuid) });
+
+              // If there is a second bubble (Double-texting)
+              if (preparedBubbles.length > 1) {
+                const b2 = preparedBubbles[1];
+                const pauseBetween = 500 + Math.random() * 400;
+
+                const tPause = setTimeout(() => {
+                  if (!conversations.has(c.id) || c.revealed) return;
+                  c.isPartnerTyping = true;
+                  sendSse(b.uuid, { type: 'partner_typing', conversationId: c.id, typing: true });
+
+                  const b2TypeDuration = Math.min(2400, Math.max(1000, b2.text.length * 75 + 500 + Math.random() * 300));
+                  const tSend2 = setTimeout(() => {
+                    if (!conversations.has(c.id) || c.revealed) return;
+                    c.isPartnerTyping = false;
+                    c.messages.push({
+                      ...makeLocalizedMessage({
+                        originalText: b2.text,
+                        sourceLanguage: reply.language,
+                        translatedText: b2.translatedText,
+                        targetLanguage: sender.language,
+                        senderId: ai.id
+                      }),
+                      recipientUuid: b.uuid,
+                      translationUnavailable: b2.translationUnavailable
+                    });
+                    sendSse(b.uuid, { type: 'conversation_update', conversation: publicConversation(c, b.uuid) });
+                    handlePossibleDeparture();
+                  }, b2TypeDuration);
+                  addConversationTimer(c.id, tSend2);
+                }, pauseBetween);
+                addConversationTimer(c.id, tPause);
+              } else {
+                handlePossibleDeparture();
+              }
+
+              function handlePossibleDeparture() {
+                const replyLower = reply.text.toLowerCase();
+                const isDeparting = (c.roundsUsed >= 3 && Math.random() < 0.22) ||
+                  /溜了|走了|拜拜|下线|拍照去了|cya|bye|gotta go|wander|see ya/.test(replyLower);
+                if (isDeparting && !c.revealed) {
+                  const tDepart = setTimeout(() => {
+                    if (!conversations.has(c.id) || c.revealed) return;
+                    ai.status = 'available';
+                    ai.displayName = getRandomName(ai.nativeLanguage);
+                    ai.targetX = -50 + Math.random() * 100;
+                    ai.targetZ = -8 + Math.random() * 12;
+                    sender.status = 'available';
+                    conversations.delete(c.id);
+                    clearConversationTimers(c.id);
+                    sendSse(b.uuid, { type: 'conversation_ended', conversationId: c.id });
+                  }, 2200 + Math.random() * 1000);
+                  addConversationTimer(c.id, tDepart);
+                }
+              }
+            }, b1TypeDuration);
+            addConversationTimer(c.id, tSend1);
+          }, initialReadWait);
+          addConversationTimer(c.id, tTyping1);
         })().catch(err => {
           c.isPartnerTyping = false;
+          clearConversationTimers(c.id);
         });
 
         return json(res,200,{conversation:publicConversation(c,b.uuid)});
@@ -362,6 +442,7 @@ const server=http.createServer(async(req,res)=>{
           if(target.type==='ai') target.displayName = getRandomName(target.nativeLanguage);
         }
         const hu=humans.get(b.uuid); if(hu)hu.status='available';
+        clearConversationTimers(b.conversationId);
         conversations.delete(b.conversationId);
         const otherUuid = c.initiatorUuid === b.uuid ? c.targetUuid : c.initiatorUuid;
         if(otherUuid) {
@@ -389,6 +470,7 @@ const server=http.createServer(async(req,res)=>{
       const targetUuid = targetType === 'human' ? (targetEntity?.uuid || (isHumanInitiator ? c.targetUuid : c.initiatorUuid)) : null;
 
       const delta=scoreGuess(b.guess,targetType); c.revealed=true;
+      clearConversationTimers(b.conversationId);
       c.result={guess:b.guess,targetType,delta,model:targetModel};
       const player=await applyGuess({uuid:b.uuid,targetType,guess:b.guess,delta,roundsUsed:c.roundsUsed,targetPublicId,model:targetModel,targetUuid});
       const initiator=runtimeByPublicId(c.initiatorPublicId), target=runtimeByPublicId(c.targetPublicId);
@@ -509,7 +591,7 @@ setInterval(async ()=>{
       roundsUsed: 0,
       revealed: false,
       alreadyJudged: judged,
-      isPartnerTyping: true,
+      isPartnerTyping: false,
       messages: [],
       createdAt: now
     };
@@ -521,20 +603,31 @@ setInterval(async ()=>{
       human.rotation = Math.atan2(-pdx, -pdz);
     }
     conversations.set(id, c);
-    // Send empty conversation with typing indicator so popup does not dump text instantly
+    // Send empty conversation with natural pause before typing
     sendSse(human.uuid, { type: 'incoming_conversation', conversation: publicConversation(c, human.uuid) });
 
-    // Wait realistic typing time before popping the first message (short greeting ~2.1s - 4.2s, +50% extended)
+    // Step 1: Pauses for 1.1s - 1.6s (approaching, stopping, looking at each other)
+    const pauseBeforeTyping = 1100 + Math.random() * 500;
     const icebreakerLen = (icebreaker.text || '').length;
-    const initialDelay = Math.min(4200, Math.max(2100, (1100 + icebreakerLen * 90 + Math.random() * 400) * 1.5));
-    setTimeout(() => {
+    const typeDuration = Math.min(3000, Math.max(1300, icebreakerLen * 85 + 700 + Math.random() * 300));
+
+    const t1 = setTimeout(() => {
       const liveC = conversations.get(id);
       if (!liveC || liveC.revealed) return;
-      liveC.messages.push(firstMsg);
-      liveC.roundsUsed = 1;
-      liveC.isPartnerTyping = false;
-      sendSse(human.uuid, { type: 'conversation_update', conversation: publicConversation(liveC, human.uuid) });
-    }, initialDelay);
+      liveC.isPartnerTyping = true;
+      sendSse(human.uuid, { type: 'partner_typing', conversationId: id, typing: true });
+
+      const t2 = setTimeout(() => {
+        const liveC2 = conversations.get(id);
+        if (!liveC2 || liveC2.revealed) return;
+        liveC2.messages.push(firstMsg);
+        liveC2.roundsUsed = 1;
+        liveC2.isPartnerTyping = false;
+        sendSse(human.uuid, { type: 'conversation_update', conversation: publicConversation(liveC2, human.uuid) });
+      }, typeDuration);
+      addConversationTimer(id, t2);
+    }, pauseBeforeTyping);
+    addConversationTimer(id, t1);
     break;
   }
 }, 5000).unref();

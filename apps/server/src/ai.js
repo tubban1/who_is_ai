@@ -128,7 +128,7 @@ export function resolveModelConfig(modelDisplayName = '') {
 
   apiKey = apiKey || process.env.AI_API_KEY || '';
   baseUrl = baseUrl || process.env.AI_BASE_URL || 'https://api.openai.com/v1';
-  modelId = modelId || name || process.env.AI_MODEL || 'gpt-4o-mini';
+  modelId = modelId || name || process.env.AI_MODEL || 'gpt-5.6-terra';
 
   if (!format) {
     const pFormat = (process.env.AI_PROVIDER || '').toLowerCase();
@@ -298,7 +298,7 @@ export async function translateText(text, sourceLanguage, targetLanguage) {
 }
 
 export async function aiReply(agent, history, observation, recipientLanguage) {
-  const modelName = agent.model || process.env.AI_MODEL || 'gpt-4o-mini';
+  const modelName = agent.model || process.env.AI_MODEL || 'gpt-5.6-terra';
   const config = resolveModelConfig(modelName);
   if (config.isMock) {
     const lang = agent.nativeLanguage || recipientLanguage || 'en';
@@ -384,7 +384,7 @@ CRITICAL HUMAN BEHAVIOR RULES (NEVER SOUND LIKE A BOT):
 }
 
 export async function generateIcebreaker(agent, observation, recipientLanguage) {
-  const modelName = agent.model || process.env.AI_MODEL || 'gpt-4o-mini';
+  const modelName = agent.model || process.env.AI_MODEL || 'gpt-5.6-terra';
   const config = resolveModelConfig(modelName);
   const lang = agent.nativeLanguage || 'en';
   if (config.isMock) {
@@ -420,4 +420,47 @@ NO tourist guide talk. NO poetic descriptions. Sound like a real gamer chatting 
   const arr = mockIcebreakers[lang] || mockIcebreakers.en;
   const fallback = arr[Math.abs((agent.seed || 17) + Math.floor(Date.now() / 10000)) % arr.length];
   return { text: text ? text.replace(/^["'\s]+|["'\s]+$/g, '') : fallback, language: lang };
+}
+
+export function prepareAiReplyBubbles(rawText, lang = 'en', seed = 0) {
+  const text = (rawText || '').trim();
+  if (!text) return [text];
+
+  // ~35% probability to perform multi-bubble response (like real netizens)
+  const shouldSplit = ((Math.abs(seed) + text.length * 7) % 100) < 35;
+  if (!shouldSplit) return [text];
+
+  // Pattern 1: Natural split on punctuation if text has 2 clauses
+  // e.g. "在喷泉旁边呢，你往左走看看" -> ["在喷泉旁边呢", "你往左走看看"]
+  // "i was lagging lol. what did you say?" -> ["i was lagging lol", "what did you say?"]
+  const punctRegex = /[，,。！？!?\n]+/;
+  const match = text.search(punctRegex);
+  if (match > 1 && match < text.length - 2) {
+    const p1 = text.slice(0, match).trim();
+    const p2 = text.slice(match + 1).replace(/^[，,。！？!?\s]+/, '').trim();
+    if (p1.length >= 2 && p2.length >= 2 && p1.length <= 45 && p2.length <= 45) {
+      return [p1, p2];
+    }
+  }
+
+  // Pattern 2: Prepend a short netizen interjection/filler for brief remarks
+  const interjections = {
+    zh: ['哈哈', '草', '？', '额', '真的假的', '绝了'],
+    en: ['lol', 'haha', 'wait', 'yo', '??', 'nah'],
+    ja: ['あー', '草', 'まじ？', 'えっ', 'ふむ'],
+    ko: ['ㅋㅋㅋ', '헐', '진짜?', '음...', '앗'],
+    fr: ['mdr', 'attends', 'ah bon?', 'genre'],
+    es: ['jaja', 'espera', 'en serio?', 'oye'],
+    de: ['haha', 'warte mal', 'echt jetzt?', 'hm'],
+    it: ['haha', 'aspetta', 'davvero?', 'ma va'],
+    pt: ['kkk', 'espera', 'sério?', 'mano'],
+    ru: ['ахах', 'подожди', 'серьезно?', 'хм']
+  };
+  const list = interjections[lang] || interjections.en;
+  if (list && text.length <= 25 && !list.some(w => text.toLowerCase().startsWith(w.toLowerCase()))) {
+    const intro = list[Math.abs(seed) % list.length];
+    return [intro, text];
+  }
+
+  return [text];
 }
