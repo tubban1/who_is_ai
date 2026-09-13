@@ -245,7 +245,8 @@ const server=http.createServer(async(req,res)=>{
         isPartnerTyping: false,
         typingForRecipientUuid: null,
         messages:[],
-        createdAt:Date.now()
+        createdAt:Date.now(),
+        lastActivityAt:Date.now()
       };
       conversations.set(id,c); me.status='talking'; target.status='talking';
       if(targetUuid) sendSse(targetUuid,{type:'incoming_conversation',conversation:publicConversation(c,targetUuid)});
@@ -255,6 +256,7 @@ const server=http.createServer(async(req,res)=>{
     if(u.pathname==='/api/conversation/typing' && req.method==='POST'){
       const b=await body(req); const c=conversations.get(b.conversationId);
       if(c && (c.initiatorUuid===b.uuid || c.targetUuid===b.uuid)){
+        c.lastActivityAt = Date.now();
         const otherUuid = c.initiatorUuid === b.uuid ? c.targetUuid : c.initiatorUuid;
         if(otherUuid) {
           sendSse(otherUuid, { type: 'partner_typing', conversationId: b.conversationId, typing: Boolean(b.typing) });
@@ -274,6 +276,7 @@ const server=http.createServer(async(req,res)=>{
       if(!c.alreadyJudged && c.roundsUsed>=MAX_ROUNDS) return json(res,409,{error:'five rounds reached; make your guess'});
       const text=String(b.text||'').trim().slice(0,500); if(!text)return json(res,400,{error:'empty message'});
       c.roundsUsed++;
+      c.lastActivityAt = Date.now();
       const recipientUuid=isInitiator?c.targetUuid:c.initiatorUuid;
       const recipient=isInitiator?runtimeByPublicId(c.targetPublicId):runtimeByPublicId(c.initiatorPublicId);
       const sourceLanguage=sender.language||'en'; const targetLanguage=recipient?.language||recipient?.nativeLanguage||'en';
@@ -349,6 +352,7 @@ const server=http.createServer(async(req,res)=>{
                 recipientUuid: b.uuid,
                 translationUnavailable: b1.translationUnavailable
               });
+              c.lastActivityAt = Date.now();
               sendSse(b.uuid, { type: 'conversation_update', conversation: publicConversation(c, b.uuid) });
 
               // If there is a second bubble (Double-texting)
@@ -376,34 +380,12 @@ const server=http.createServer(async(req,res)=>{
                       recipientUuid: b.uuid,
                       translationUnavailable: b2.translationUnavailable
                     });
+                    c.lastActivityAt = Date.now();
                     sendSse(b.uuid, { type: 'conversation_update', conversation: publicConversation(c, b.uuid) });
-                    handlePossibleDeparture();
                   }, b2TypeDuration);
                   addConversationTimer(c.id, tSend2);
                 }, pauseBetween);
                 addConversationTimer(c.id, tPause);
-              } else {
-                handlePossibleDeparture();
-              }
-
-              function handlePossibleDeparture() {
-                const replyLower = reply.text.toLowerCase();
-                const isDeparting = (c.roundsUsed >= 3 && Math.random() < 0.22) ||
-                  /溜了|走了|拜拜|下线|拍照去了|cya|bye|gotta go|wander|see ya/.test(replyLower);
-                if (isDeparting && !c.revealed) {
-                  const tDepart = setTimeout(() => {
-                    if (!conversations.has(c.id) || c.revealed) return;
-                    ai.status = 'available';
-                    ai.displayName = getRandomName(ai.nativeLanguage);
-                    ai.targetX = -50 + Math.random() * 100;
-                    ai.targetZ = -8 + Math.random() * 12;
-                    sender.status = 'available';
-                    conversations.delete(c.id);
-                    clearConversationTimers(c.id);
-                    sendSse(b.uuid, { type: 'conversation_ended', conversationId: c.id });
-                  }, 2200 + Math.random() * 1000);
-                  addConversationTimer(c.id, tDepart);
-                }
               }
             }, b1TypeDuration);
             addConversationTimer(c.id, tSend1);
@@ -512,9 +494,16 @@ const server=http.createServer(async(req,res)=>{
 setInterval(()=>{
   const now=Date.now();
   for(const [id,c] of conversations){
-    if(!c.revealed && now-c.createdAt>5*60*1000){
+    const lastActive = c.lastActivityAt || c.createdAt || 0;
+    // Clean up abandoned conversations only after 20 minutes of complete inactivity
+    if(now - lastActive > 20*60*1000){
       const a=runtimeByPublicId(c.initiatorPublicId), b=runtimeByPublicId(c.targetPublicId);
-      if(a)a.status='available'; if(b)b.status='available'; conversations.delete(id);
+      if(a && a.status === 'talking') a.status='available'; 
+      if(b && b.status === 'talking') b.status='available'; 
+      clearConversationTimers(id);
+      conversations.delete(id);
+      if (c.initiatorUuid) sendSse(c.initiatorUuid, { type: 'conversation_ended', conversationId: id, reason: 'timeout' });
+      if (c.targetUuid) sendSse(c.targetUuid, { type: 'conversation_ended', conversationId: id, reason: 'timeout' });
     }
   }
 },30000).unref();
@@ -526,15 +515,14 @@ setInterval(async ()=>{
   if (activeHumans.length === 0) return;
 
   for (const human of activeHumans) {
+    if (human.status === 'talking') continue;
     let inChat = false;
     for (const c of conversations.values()) {
-      if (!c.revealed && (c.initiatorUuid === human.uuid || c.targetUuid === human.uuid)) {
+      if (c.initiatorUuid === human.uuid || c.targetUuid === human.uuid) {
         inChat = true; break;
       }
     }
     if (inChat) continue;
-
-    if (human.status !== 'available') human.status = 'available';
 
     const candidates = aiAgents.filter(a => {
       if (a.status !== 'available') return false;
@@ -593,7 +581,8 @@ setInterval(async ()=>{
       alreadyJudged: judged,
       isPartnerTyping: false,
       messages: [],
-      createdAt: now
+      createdAt: now,
+      lastActivityAt: now
     };
     // Face each other on proactive encounter
     const pdx = human.x - ai.x;

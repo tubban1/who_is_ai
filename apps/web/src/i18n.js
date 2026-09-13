@@ -69,6 +69,7 @@ export const TRANSLATIONS = {
     yourVerdictTitle: '你的最终判断',
     passiveNoteTesting: '对方正在测试你。自然回复即可 — 由对方判断你的身份。',
     passiveNoteCasual: '你已对该参与者完成过评判。尽情自由交流吧！',
+    convNotFound: '该对话已结束或对方已离开',
 
     // Leaderboard
     leaderboardEyebrow: '全球排行',
@@ -193,6 +194,7 @@ export const TRANSLATIONS = {
     yourVerdictTitle: 'YOUR VERDICT',
     passiveNoteTesting: 'Someone is testing you. Reply naturally — they will decide who you are.',
     passiveNoteCasual: 'You already evaluated this participant. Enjoy casual chatting!',
+    convNotFound: 'Conversation has ended or partner left',
 
     // Leaderboard
     leaderboardEyebrow: 'GLOBAL',
@@ -313,6 +315,7 @@ export const TRANSLATIONS = {
     yourVerdictTitle: 'あなたの判定',
     passiveNoteTesting: '相手があなたをテストしています。自然に返信してください。',
     passiveNoteCasual: 'この相手は判定済みです。自由なチャットを楽しんでください！',
+    convNotFound: '対話が終了したか、相手が退出しました',
 
     // Leaderboard
     leaderboardEyebrow: '世界ランキング',
@@ -416,6 +419,7 @@ export const TRANSLATIONS = {
     yourVerdictTitle: 'DEIN URTEIL',
     passiveNoteTesting: 'Jemand testet dich. Antworte natürlich.',
     passiveNoteCasual: 'Bereits bewertet. Genieße das Gespräch!',
+    convNotFound: 'Gespräch beendet oder Partner gegangen',
 
     // Leaderboard
     leaderboardEyebrow: 'GLOBAL',
@@ -519,6 +523,7 @@ export const TRANSLATIONS = {
     yourVerdictTitle: 'VOTRE VERDICT',
     passiveNoteTesting: 'Quelqu\'un vous teste. Répondez naturellement.',
     passiveNoteCasual: 'Déjà évalué. Profitez de la discussion !',
+    convNotFound: 'La conversation est terminée ou le partenaire est parti',
 
     // Leaderboard
     leaderboardEyebrow: 'MONDIAL',
@@ -622,6 +627,7 @@ export const TRANSLATIONS = {
     yourVerdictTitle: 'TU VEREDICTO',
     passiveNoteTesting: 'Alguien te está evaluando. Responde con naturalidad.',
     passiveNoteCasual: 'Ya evaluado. ¡Disfruta la conversación!',
+    convNotFound: 'La conversación ha terminado o la persona se fue',
 
     // Leaderboard
     leaderboardEyebrow: 'GLOBAL',

@@ -71,7 +71,7 @@ export default function ConversationPanel({uuid,language='zh',conversation,partn
   };
 
   const handleClose = async () => {
-    if (!conversation.revealed) {
+    if (conversation?.id) {
       try { await post('/api/conversation/leave', { uuid, conversationId: conversation.id }); } catch {}
     }
     onClose();
@@ -174,6 +174,6 @@ export default function ConversationPanel({uuid,language='zh',conversation,partn
       {!conversation.canGuess&&!isFreeChat&&<div className="passive-note">{t('passiveNoteTesting', language)}</div>}
       {isFreeChat&&<div className="passive-note">{t('passiveNoteCasual', language)}</div>}
     </>}
-    {error&&<div className="error compact">{error}</div>}
+    {error&&<div className="error compact">{error.toLowerCase().includes('not found') ? t('convNotFound', language) : error}</div>}
   </div>
 }
