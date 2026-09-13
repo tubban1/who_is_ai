@@ -185,15 +185,69 @@ export function createAiPopulation(count=18) {
   });
 }
 
+let lastSpawnTime = 0;
+
+/**
+ * 动态计算目标 AI Agent 规模 (Elastic Population Scaling)
+ * 核心考量：
+ * 1. 初期真人极少（0~1 人）时：保持基础底数（MIN=14），外滩依然人群络绎不绝、夜景繁华，绝不冷场；
+ * 2. 真人逐渐增多（2~8 人）：AI 数量稳步微调（14~18 人），保证漫步偶遇概率高，真人比例适度提升；
+ * 3. 真人较多（9~25 人）：AI 数量快速跟进（18~28 人），真人和 AI 比例逐渐收敛到 1:1 左右的黄金平衡区间；
+ * 4. 高并发真人（30+ 人）：达到 MAX=36 人保护上限，防止服务器过载。
+ */
+export function getTargetAiPopulation(activeHumansCount) {
+  const minAgents = Number(process.env.AI_POPULATION_MIN || 14);
+  const maxAgents = Number(process.env.AI_POPULATION_MAX || 36);
+
+  if (activeHumansCount <= 1) {
+    return minAgents;
+  }
+  if (activeHumansCount <= 8) {
+    return Math.min(maxAgents, Math.round(minAgents + (activeHumansCount - 1) * 0.5));
+  }
+  if (activeHumansCount <= 20) {
+    return Math.min(maxAgents, Math.round(14 + (activeHumansCount - 1) * 0.75));
+  }
+  return Math.min(maxAgents, Math.max(minAgents, activeHumansCount));
+}
+
 export function tickAgents(agents, dt=0.7, humans=null) {
   const now = Date.now();
   const models = getConfiguredModels();
   const activeHumans = humans ? Array.from(humans.values()).filter(h => (h.status === 'available' || !h.status) && now - (h.lastSeen || 0) < 30000) : [];
-  
-  for (const a of agents) {
+  const targetAi = getTargetAiPopulation(activeHumans.length);
+
+  // 1. 平滑扩容 (Scale Up)：当前总数低于目标，每隔至少 2.5 秒从步道外围走入 1 位新路人
+  if (agents.length < targetAi && now - lastSpawnTime > 2500) {
+    lastSpawnTime = now;
+    const newId = `a_${now.toString(36).slice(-4)}_${Math.random().toString(36).slice(2, 6)}`;
+    const newAgent = createSingleAgent(newId, models);
+    agents.push(newAgent);
+  }
+
+  // 2. 平滑缩容标记 (Scale Down Initiator)：如果当前总数超出目标，寻找处于 available 且未在会话中的路人走向出口
+  if (agents.length > targetAi) {
+    const departingCount = agents.filter(a => a.departing).length;
+    const excess = agents.length - targetAi;
+    if (departingCount < excess) {
+      const candidate = agents.find(a => a.status === 'available' && !a.departing);
+      if (candidate) {
+        candidate.departing = true;
+        candidate.targetX = candidate.x > 0 ? 58 : -58;
+        candidate.targetZ = candidate.z;
+        candidate.idleUntil = 0;
+      }
+    }
+  }
+
+  // 3. 倒序遍历更新位置与状态（支持安全动态剔除与转生）
+  for (let i = agents.length - 1; i >= 0; i--) {
+    const a = agents[i];
+
     // If agent is currently chatting, keep them active & refresh session so they don't leave mid-chat
     if (a.status !== 'available') {
       a.sessionExpiresAt = Math.max(a.sessionExpiresAt || 0, now + 120000);
+      a.departing = false;
       continue;
     }
 
@@ -207,11 +261,18 @@ export function tickAgents(agents, dt=0.7, humans=null) {
       a.idleUntil = 0;
     }
 
-    // If departing agent reaches the edge or timeout expires, retire and spawn a new person
+    // If departing agent reaches the edge or timeout expires
     if (a.departing && (Math.abs(a.x) >= 54 || now > a.sessionExpiresAt + 35000)) {
-      const newPerson = createSingleAgent(`a_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(2,5)}`, models);
-      Object.assign(a, newPerson);
-      continue;
+      if (agents.length > targetAi) {
+        // 超出目标人口：平滑离场真正缩容
+        agents.splice(i, 1);
+        continue;
+      } else {
+        // 未超出目标人口：退役并以新路人身份重新入场
+        const newPerson = createSingleAgent(`a_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(2,5)}`, models);
+        Object.assign(a, newPerson);
+        continue;
+      }
     }
 
     // 1. Natural idle/pause state (looking at river scenery, smartphone, or daydreaming)

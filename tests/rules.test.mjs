@@ -70,3 +70,23 @@ test('prepareAiReplyBubbles handles single and multi-bubble responses cleanly', 
     assert.equal(splitResult[1], '你也是刚来的？');
   }
 });
+
+test('getTargetAiPopulation balances floor population with dynamic human ratio', async () => {
+  const { getTargetAiPopulation } = await import('../apps/server/src/world.js');
+  // Floor population when humans are low:
+  assert.equal(getTargetAiPopulation(0), 14);
+  assert.equal(getTargetAiPopulation(1), 14);
+
+  // Progressive scaling during moderate humans:
+  assert.equal(getTargetAiPopulation(5), 16);
+  assert.equal(getTargetAiPopulation(10), 21);
+  assert.equal(getTargetAiPopulation(20), 28);
+
+  // Near 1:1 balance at higher numbers:
+  assert.equal(getTargetAiPopulation(30), 30);
+
+  // Upper bound protection:
+  assert.equal(getTargetAiPopulation(40), 36);
+  assert.equal(getTargetAiPopulation(100), 36);
+});
+

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import { initDb, upsertPlayer, getPlayer, applyGuess, leaderboard, modelLeaderboard, impostorLeaderboard, hasJudged, saveFeedback, getFeedbacks } from './db.js';
 import { aiReply, translateText, generateIcebreaker, prepareAiReplyBubbles } from './ai.js';
-import { createAiPopulation, tickAgents, distance, sceneObservation, getConfiguredModels, getRandomName, recycleAgent } from './world.js';
+import { createAiPopulation, tickAgents, distance, sceneObservation, getConfiguredModels, getRandomName, recycleAgent, getTargetAiPopulation } from './world.js';
 import { MAX_ROUNDS, GUESS, scoreGuess, sanitizeTarget, makeLocalizedMessage } from '../../../packages/shared/src/rules.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -26,7 +26,7 @@ const PORT = Number(process.env.SERVER_PORT || 8787);
 const STANDALONE = path.join(ROOT, 'apps/standalone');
 const WEB_PUBLIC = path.join(ROOT, 'apps/web/public');
 const WEB_DIST = path.join(ROOT, 'apps/web/dist');
-const aiAgents = createAiPopulation(Number(process.env.AI_POPULATION || 18));
+const aiAgents = createAiPopulation(Number(process.env.AI_POPULATION_MIN || process.env.AI_POPULATION || 14));
 const humans = new Map(); // uuid -> runtime
 const publicToUuid = new Map();
 const sseClients = new Map();
@@ -172,7 +172,17 @@ const server=http.createServer(async(req,res)=>{
   try{
     cors(res); if(req.method==='OPTIONS'){res.writeHead(204);return res.end();}
     const u=new URL(req.url,`http://${req.headers.host}`);
-    if(u.pathname==='/health') return json(res,200,{ok:true,persistence:dbInfo.mode,players:humans.size,ai:aiAgents.length});
+    if(u.pathname==='/health') {
+      const activeHumansCount = Array.from(humans.values()).filter(h => Date.now() - (h.lastSeen || 0) < 30000).length;
+      return json(res,200,{
+        ok:true,
+        persistence:dbInfo.mode,
+        players:humans.size,
+        activePlayers: activeHumansCount,
+        ai:aiAgents.length,
+        targetAi: getTargetAiPopulation(activeHumansCount)
+      });
+    }
 
     if(u.pathname==='/api/session' && req.method==='POST'){
       const b=await body(req);
