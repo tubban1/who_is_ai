@@ -18,7 +18,7 @@ export default function ConversationPanel({uuid,language='zh',conversation,partn
 
   React.useEffect(() => {
     scrollToBottom();
-  }, [conversation?.messages, partnerTyping]);
+  }, [conversation?.messages, partnerTyping, Boolean(conversation?.messages?.at(-1)?.senderId !== conversation?.other?.id)]);
 
   const handleInputChange = (e) => {
     const val = e.target.value;
@@ -82,6 +82,11 @@ export default function ConversationPanel({uuid,language='zh',conversation,partn
   const isFreeChat=Boolean(conversation.alreadyJudged);
   const roundsLocked = !isFreeChat && conversation.roundsUsed >= 5;
 
+  const lastMessage = myMessages.at(-1);
+  const isLastMsgMine = lastMessage ? isMyMsg(lastMessage) : false;
+  const isApproachedWaiting = myMessages.length === 0 && Boolean(conversation.other) && (conversation.initiatorPublicId === conversation.other.id);
+  const isWaitingForReply = !conversation.revealed && !partnerTyping && (isLastMsgMine || isApproachedWaiting);
+
   const guessLabels = {
     human: t('humanVerdict', language),
     ai: t('aiVerdict', language),
@@ -91,11 +96,13 @@ export default function ConversationPanel({uuid,language='zh',conversation,partn
   return <div className="conversation glass">
     <div className="conv-head">
       <div>
-        <span className={`status-dot ${partnerTyping ? 'typing' : ''}`}></span>
+        <span className={`status-dot ${partnerTyping ? 'typing' : isWaitingForReply ? 'waiting' : ''}`}></span>
         <b>{conversation.other.displayName}</b>
         <small>
           {partnerTyping ? (
             <span className="partner-typing-indicator">{t('partnerTyping', language)}</span>
+          ) : isWaitingForReply ? (
+            <span className="partner-waiting-indicator">{t('waitingForReply', language)}</span>
           ) : isFreeChat ? (
             t('knownParticipant', language)
           ) : (
@@ -116,7 +123,7 @@ export default function ConversationPanel({uuid,language='zh',conversation,partn
         const mine=isMyMsg(m); const hasAlt=Boolean(m.translatedText)&&m.translatedText!==m.originalText; const shown=!mine&&showOriginal[i]?m.originalText:(m.displayText||m.originalText);
         return <div className={`bubble ${mine?'mine':'theirs'}`} key={i}><div>{shown}</div>{!mine&&hasAlt&&<button className="original-toggle" onClick={()=>setShowOriginal(s=>({...s,[i]:!s[i]}))}>{showOriginal[i]?t('showTranslation', language):t('showOriginal', language)} · {m.sourceLanguage}</button>}{!mine&&m.translationUnavailable&&m.sourceLanguage!==language&&<small className="translation-note">{t('translationUnavailable', language)}</small>}</div>
       })}
-      {partnerTyping && (
+      {partnerTyping ? (
         <div className="bubble theirs typing-bubble">
           <div className="typing-dots">
             <span></span>
@@ -125,7 +132,16 @@ export default function ConversationPanel({uuid,language='zh',conversation,partn
           </div>
           <span className="typing-text">{t('partnerTyping', language)}</span>
         </div>
-      )}
+      ) : isWaitingForReply ? (
+        <div className="bubble theirs waiting-bubble">
+          <div className="waiting-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <span className="waiting-text">{t('waitingForReply', language)}</span>
+        </div>
+      ) : null}
       <div ref={messagesEndRef} style={{ height: 1, margin: 0, padding: 0 }} />
     </div>
     {conversation.revealed ? <div className={`reveal ${conversation.result.delta===1?'win':conversation.result.delta===-1?'lose':'neutral'}`}>

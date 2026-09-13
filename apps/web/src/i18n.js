@@ -45,6 +45,7 @@ export const TRANSLATIONS = {
     // Conversation Panel
     strangerHidden: '陌生人 · 身份隐藏',
     knownParticipant: '已评判参与者 · 自由畅聊',
+    waitingForReply: '等待对方回复…',
     partnerTyping: '对方正在输入…',
     roundMeter: '对话轮次',
     alreadyJudgedBanner: '已完成评判 · 自由畅聊（不计分）',
@@ -168,6 +169,7 @@ export const TRANSLATIONS = {
     // Conversation Panel
     strangerHidden: 'STRANGER · identity hidden',
     knownParticipant: 'KNOWN PARTICIPANT · Free chat',
+    waitingForReply: 'Waiting for reply…',
     partnerTyping: 'Typing…',
     roundMeter: 'ROUND',
     alreadyJudgedBanner: 'Already judged · Free chat (No points)',
@@ -287,6 +289,8 @@ export const TRANSLATIONS = {
     // Conversation Panel
     strangerHidden: '見知らぬ人 · 正体不明',
     knownParticipant: '判定済み · フリートーク',
+    waitingForReply: '相手の返信を待っています…',
+    partnerTyping: '入力中…',
     roundMeter: 'ラウンド',
     alreadyJudgedBanner: '判定済み · フリートーク（ポイントなし）',
     emptyChat: '自然に会話を始めてみましょう。風景や日常など、思考が伝わる質問を。',
@@ -388,6 +392,8 @@ export const TRANSLATIONS = {
     // Conversation Panel
     strangerHidden: 'FREMDER · Identität verborgen',
     knownParticipant: 'BEKANNTER TEILNEHMER · Freier Chat',
+    waitingForReply: 'Warte auf Antwort…',
+    partnerTyping: 'Schreibt…',
     roundMeter: 'RUNDE',
     alreadyJudgedBanner: 'Bereits bewertet · Freier Chat (Keine Punkte)',
     emptyChat: 'Beginne ganz natürlich. Frage nach der Umgebung, ihrem Tag oder Gedanken.',
@@ -489,6 +495,8 @@ export const TRANSLATIONS = {
     // Conversation Panel
     strangerHidden: 'INCONNU · Identité cachée',
     knownParticipant: 'PARTICIPANT CONNU · Chat libre',
+    waitingForReply: 'En attente de réponse…',
+    partnerTyping: 'En train d\'écrire…',
     roundMeter: 'TOUR',
     alreadyJudgedBanner: 'Déjà évalué · Chat libre (Pas de points)',
     emptyChat: 'Commencez naturellement. Parlez de la vue, de votre journée ou de vos pensées.',
@@ -590,6 +598,8 @@ export const TRANSLATIONS = {
     // Conversation Panel
     strangerHidden: 'EXTRAÑO · Identidad oculta',
     knownParticipant: 'PARTICIPANTE CONOCIDO · Chat libre',
+    waitingForReply: 'Esperando respuesta…',
+    partnerTyping: 'Escribiendo…',
     roundMeter: 'RONDA',
     alreadyJudgedBanner: 'Ya evaluado · Chat libre (Sin puntos)',
     emptyChat: 'Empieza con naturalidad. Pregunta sobre el paisaje, su día o sus pensamientos.',

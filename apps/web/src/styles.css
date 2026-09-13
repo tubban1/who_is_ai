@@ -231,6 +231,58 @@
   50% { opacity: 1; }
 }
 
+/* Waiting for reply indicator bubble and animations */
+.waiting-bubble {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px !important;
+  background: rgba(20, 30, 48, 0.85) !important;
+  border: 1px solid rgba(155, 181, 217, 0.25);
+}
+.waiting-dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.waiting-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #9bb5d9;
+  display: inline-block;
+  animation: waitingDotPulse 1.6s infinite ease-in-out both;
+}
+.waiting-dots span:nth-child(1) { animation-delay: -0.32s; }
+.waiting-dots span:nth-child(2) { animation-delay: -0.16s; }
+.waiting-dots span:nth-child(3) { animation-delay: 0s; }
+@keyframes waitingDotPulse {
+  0%, 80%, 100% { transform: scale(0.7); opacity: 0.35; }
+  40% { transform: scale(1.05); opacity: 0.95; }
+}
+.waiting-text {
+  font-size: 11px;
+  color: #9bb5d9;
+  letter-spacing: 0.05em;
+}
+.status-dot.waiting {
+  background: #9bb5d9 !important;
+  animation: waitingGlow 1.6s infinite alternate;
+}
+@keyframes waitingGlow {
+  from { box-shadow: 0 0 3px #9bb5d9; opacity: 0.6; }
+  to { box-shadow: 0 0 8px #9bb5d9; opacity: 1; }
+}
+.partner-waiting-indicator {
+  color: #9bb5d9 !important;
+  font-weight: 500;
+  animation: waitingFade 1.6s infinite ease-in-out;
+}
+@keyframes waitingFade {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
 /* Mobile responsive layout enhancements */
 @media (max-width: 768px) {
   .hud-top {
