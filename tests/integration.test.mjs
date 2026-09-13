@@ -28,13 +28,14 @@ test('real server: UUID persistence, proximity encounter, 5 rounds and reveal',a
   r=await post('/api/conversation/guess',{uuid,conversationId:cid,guess:'ai'});assert.equal(r.status,200);assert.equal(r.data.conversation.result.targetType,'ai');assert.equal(r.data.conversation.result.delta,1);assert.equal(r.data.player.score,1);
   const lb=await (await fetch(`${base}/api/leaderboard`)).json();assert.equal(lb.rows[0].displayName,'Tester');assert.equal(lb.rows[0].score,1);
 
-  // Subsequent conversation with the same target should be marked alreadyJudged and deny scoring
-  let rSecond = await post('/api/conversation/start',{uuid,targetId:target.id});
+  // AI agent is seamlessly recycled with a new identity so players can continuously encounter fresh personas
+  const worldAfter = await (await fetch(`${base}/api/world?uuid=${uuid}`)).json();
+  const nextTarget = worldAfter.strangers[0];
+  await post('/api/position',{uuid,x:nextTarget.x,z:nextTarget.z,rotation:0});
+  let rSecond = await post('/api/conversation/start',{uuid,targetId:nextTarget.id});
   assert.equal(rSecond.status,200);
-  assert.equal(rSecond.data.conversation.alreadyJudged,true);
-  assert.equal(rSecond.data.conversation.canGuess,false);
-  let rGuessAttempt = await post('/api/conversation/guess',{uuid,conversationId:rSecond.data.conversation.id,guess:'ai'});
-  assert.equal(rGuessAttempt.status,409);
+  assert.equal(rSecond.data.conversation.alreadyJudged,false);
+  assert.equal(rSecond.data.conversation.canGuess,true);
   let rLeave = await post('/api/conversation/leave',{uuid,conversationId:rSecond.data.conversation.id});
   assert.equal(rLeave.status,200);
 

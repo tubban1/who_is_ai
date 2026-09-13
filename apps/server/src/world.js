@@ -138,6 +138,28 @@ export function createSingleAgent(id, models) {
   };
 }
 
+export function recycleAgent(agent, models = null) {
+  const modelList = (models && models.length > 0) ? models : getConfiguredModels();
+  const lang = AGENT_LANGUAGES[Math.floor(Math.random() * AGENT_LANGUAGES.length)];
+  const name = getRandomName(lang);
+  const model = modelList[Math.floor(Math.random() * modelList.length)];
+  const newId = `a_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(2, 6)}`;
+
+  agent.id = newId;
+  agent.displayName = name;
+  agent.nativeLanguage = lang;
+  agent.model = model;
+  agent.seed = Math.floor(Math.random() * 100000);
+  agent.status = 'available';
+  agent.chatCooldownUntil = Date.now() + 2000 + Math.random() * 3000;
+  agent.targetX = Math.max(-50, Math.min(50, agent.x + (Math.random() - 0.5) * 30));
+  agent.targetZ = Math.max(-8, Math.min(4, agent.z + (Math.random() - 0.5) * 10));
+  agent.idleUntil = 0;
+  agent.sessionExpiresAt = Date.now() + 120000 + Math.random() * 120000;
+  agent.departing = false;
+  return agent;
+}
+
 export function createAiPopulation(count=18) {
   const models = getConfiguredModels();
   return Array.from({length:count}, (_,i)=>{

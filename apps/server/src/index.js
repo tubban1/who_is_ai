@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import { initDb, upsertPlayer, getPlayer, applyGuess, leaderboard, modelLeaderboard, impostorLeaderboard, hasJudged, saveFeedback, getFeedbacks } from './db.js';
 import { aiReply, translateText, generateIcebreaker, prepareAiReplyBubbles } from './ai.js';
-import { createAiPopulation, tickAgents, distance, sceneObservation, getConfiguredModels, getRandomName } from './world.js';
+import { createAiPopulation, tickAgents, distance, sceneObservation, getConfiguredModels, getRandomName, recycleAgent } from './world.js';
 import { MAX_ROUNDS, GUESS, scoreGuess, sanitizeTarget, makeLocalizedMessage } from '../../../packages/shared/src/rules.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -442,12 +442,12 @@ const server=http.createServer(async(req,res)=>{
       if(c && (c.initiatorUuid===b.uuid || c.targetUuid===b.uuid)){
         const initiator=runtimeByPublicId(c.initiatorPublicId), target=runtimeByPublicId(c.targetPublicId);
         if(initiator){
-          initiator.status='available';
-          if(initiator.type==='ai') initiator.displayName = getRandomName(initiator.nativeLanguage);
+          if(initiator.type==='ai') recycleAgent(initiator);
+          else initiator.status='available';
         }
         if(target){
-          target.status='available';
-          if(target.type==='ai') target.displayName = getRandomName(target.nativeLanguage);
+          if(target.type==='ai') recycleAgent(target);
+          else target.status='available';
         }
         const hu=humans.get(b.uuid); if(hu)hu.status='available';
         clearConversationTimers(b.conversationId);
@@ -483,12 +483,12 @@ const server=http.createServer(async(req,res)=>{
       const player=await applyGuess({uuid:b.uuid,targetType,guess:b.guess,delta,roundsUsed:c.roundsUsed,targetPublicId,model:targetModel,targetUuid});
       const initiator=runtimeByPublicId(c.initiatorPublicId), target=runtimeByPublicId(c.targetPublicId);
       if(initiator){
-        initiator.status='available';
-        if(initiator.type==='ai') initiator.displayName = getRandomName(initiator.nativeLanguage);
+        if(initiator.type==='ai') recycleAgent(initiator);
+        else initiator.status='available';
       }
       if(target){
-        target.status='available';
-        if(target.type==='ai') target.displayName = getRandomName(target.nativeLanguage);
+        if(target.type==='ai') recycleAgent(target);
+        else target.status='available';
       }
       const hu=humans.get(b.uuid); if(hu)hu.status='available';
       if(c.targetUuid) sendSse(c.targetUuid,{type:'conversation_revealed',conversation:publicConversation(c,c.targetUuid)});
