@@ -298,13 +298,14 @@ export async function translateText(text, sourceLanguage, targetLanguage) {
 }
 
 export async function aiReply(agent, history, observation, recipientLanguage) {
-  const modelName = agent.model || process.env.AI_MODEL || 'gpt-5.6-terra';
+  const safeAgent = agent || { displayName: 'Stranger', nativeLanguage: 'zh', seed: 1, model: process.env.AI_MODEL };
+  const modelName = safeAgent.model || process.env.AI_MODEL || 'gpt-5.6-terra';
   const config = resolveModelConfig(modelName);
   if (config.isMock) {
-    const lang = agent.nativeLanguage || recipientLanguage || 'en';
+    const lang = safeAgent.nativeLanguage || recipientLanguage || 'en';
     const arr = mockPhrases[lang] || mockPhrases.en;
     const last = history.at(-1)?.originalText || '';
-    const seed = [...last].reduce((a,c)=>a+c.charCodeAt(0), agent.seed || 0) + history.length;
+    const seed = [...last].reduce((a,c)=>a+c.charCodeAt(0), safeAgent.seed || 0) + history.length;
     return { text: arr[Math.abs(seed)%arr.length], language: lang };
   }
   const personalities = [
@@ -313,12 +314,12 @@ export async function aiReply(agent, history, observation, recipientLanguage) {
     "chill, short-word chatter who texts like a real netizen with lowercase, typos, or playful tone ('yo', 'sup', 'haha', '??')",
     "random and slightly goofy gamer who makes silly remarks ('i think my wasd keys are stuck', 'who designed this river lol', 'ate too much dinner')"
   ];
-  const personaSeed = (agent.seed || 1) % personalities.length;
+  const personaSeed = (safeAgent.seed || 1) % personalities.length;
   const chosenStyle = personalities[personaSeed];
 
-  const lang = agent.nativeLanguage || 'en';
+  const lang = safeAgent.nativeLanguage || 'en';
 
-  const system = `You are ${agent.displayName}, an ordinary real human netizen playing a web 3D multiplayer game called "Who is AI".
+  const system = `You are ${safeAgent.displayName}, an ordinary real human netizen playing a web 3D multiplayer game called "Who is AI".
 Your chat persona: ${chosenStyle}.
 Your native mother tongue is strictly ${lang}.
 

@@ -327,9 +327,14 @@ export function tickAgents(agents, dt=0.7, humans=null) {
   }
 }
 
-export function distance(a,b) { return Math.hypot((a.x||0)-(b.x||0),(a.z||0)-(b.z||0)); }
+export function distance(a,b) { 
+  if (!a || !b) return 999;
+  return Math.hypot((a.x||0)-(b.x||0),(a.z||0)-(b.z||0)); 
+}
 
 export function sceneObservation(entity) {
+  const ex = entity?.x || 0;
+  const ez = entity?.z || 0;
   const landmarks = [
     {name:'Oriental Pearl Tower & Lujiazui Skyline across the river',x:0,z:-65},
     {name:'Peace Hotel green pyramid copper roof',x:-18,z:25},
@@ -337,5 +342,5 @@ export function sceneObservation(entity) {
     {name:'The Bund elevated waterfront promenade',x:0,z:-6},
     {name:'Huangpu River cruise ferry',x:18,z:-40}
   ];
-  return landmarks.map(l=>({...l,distance:Math.round(Math.hypot(entity.x-l.x,entity.z-l.z))})).sort((a,b)=>a.distance-b.distance).slice(0,3);
+  return landmarks.map(l=>({...l,distance:Math.round(Math.hypot(ex-l.x,ez-l.z))})).sort((a,b)=>a.distance-b.distance).slice(0,3);
 }

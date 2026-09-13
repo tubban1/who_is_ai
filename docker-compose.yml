@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: always
     environment:
       POSTGRES_DB: whoisai
       POSTGRES_USER: whoisai
@@ -18,6 +19,7 @@ services:
     build:
       context: .
       dockerfile: apps/server/Dockerfile
+    restart: always
     env_file:
       - .env
     environment:
@@ -36,6 +38,7 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         VITE_SERVER_URL: ""
+    restart: always
     ports:
       - "8080:80"
     depends_on:

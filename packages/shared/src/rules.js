@@ -11,11 +11,12 @@ export function canSendRound(conversation) {
 }
 
 export function sanitizeTarget(target) {
+  if (!target) return null;
   return {
-    id: target.id,
-    displayName: target.displayName,
-    x: target.x,
-    z: target.z,
+    id: target.id || '',
+    displayName: target.displayName || '',
+    x: target.x || 0,
+    z: target.z || 0,
     rotation: target.rotation ?? 0,
     status: target.status ?? 'available'
   };

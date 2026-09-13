@@ -8,6 +8,13 @@ import { aiReply, translateText, generateIcebreaker, prepareAiReplyBubbles } fro
 import { createAiPopulation, tickAgents, distance, sceneObservation, getConfiguredModels, getRandomName, recycleAgent, getTargetAiPopulation } from './world.js';
 import { MAX_ROUNDS, GUESS, scoreGuess, sanitizeTarget, makeLocalizedMessage } from '../../../packages/shared/src/rules.js';
 
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT EXCEPTION]', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[UNHANDLED REJECTION]', reason);
+});
+
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../../..');
 async function loadEnvFile() {
@@ -81,7 +88,7 @@ function cors(res) {
 function json(res,status,data){ cors(res); res.writeHead(status,{'Content-Type':'application/json'}); res.end(JSON.stringify(data)); }
 async function body(req){ let s=''; for await (const c of req) s+=c; return s?JSON.parse(s):{}; }
 function isUuid(v){ return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v||''); }
-function sendSse(uuid,payload){ const res=sseClients.get(uuid); if(res){ res.write(`data: ${JSON.stringify(payload)}\n\n`); } }
+function sendSse(uuid,payload){ const res=sseClients.get(uuid); if(res){ try { res.write(`data: ${JSON.stringify(payload)}\n\n`); } catch(e){ sseClients.delete(uuid); } } }
 
 async function ensureHuman(uuid) {
   if (!isUuid(uuid)) return null;
@@ -376,65 +383,81 @@ const server=http.createServer(async(req,res)=>{
 
           // Phase 1: Reading period finishes -> AI begins typing Bubble 1
           const tTyping1 = setTimeout(() => {
-            if (!conversations.has(c.id) || c.revealed) return;
-            c.isPartnerTyping = true;
-            sendSse(b.uuid, { type: 'partner_typing', conversationId: c.id, typing: true });
-
-            const b1 = preparedBubbles[0];
-            const b1TypeDuration = calculateTypingDuration(b1.text, reply.language);
-
-            // Phase 2: Bubble 1 finishes typing -> send Bubble 1
-            const tSend1 = setTimeout(() => {
+            try {
               if (!conversations.has(c.id) || c.revealed) return;
-              c.isPartnerTyping = false;
-              c.messages.push({
-                ...makeLocalizedMessage({
-                  originalText: b1.text,
-                  sourceLanguage: reply.language,
-                  translatedText: b1.translatedText,
-                  targetLanguage: sender.language,
-                  senderId: ai.id
-                }),
-                recipientUuid: b.uuid,
-                translationUnavailable: b1.translationUnavailable
-              });
-              c.lastActivityAt = Date.now();
-              sendSse(b.uuid, { type: 'conversation_update', conversation: publicConversation(c, b.uuid) });
+              c.isPartnerTyping = true;
+              sendSse(b.uuid, { type: 'partner_typing', conversationId: c.id, typing: true });
 
-              // If there is a second bubble (Double-texting)
-              if (preparedBubbles.length > 1) {
-                const b2 = preparedBubbles[1];
-                const pauseBetween = 800 + Math.random() * 600;
+              const b1 = preparedBubbles[0];
+              const b1TypeDuration = calculateTypingDuration(b1.text, reply.language);
 
-                const tPause = setTimeout(() => {
+              // Phase 2: Bubble 1 finishes typing -> send Bubble 1
+              const tSend1 = setTimeout(() => {
+                try {
                   if (!conversations.has(c.id) || c.revealed) return;
-                  c.isPartnerTyping = true;
-                  sendSse(b.uuid, { type: 'partner_typing', conversationId: c.id, typing: true });
+                  c.isPartnerTyping = false;
+                  c.messages.push({
+                    ...makeLocalizedMessage({
+                      originalText: b1.text,
+                      sourceLanguage: reply.language,
+                      translatedText: b1.translatedText,
+                      targetLanguage: sender.language,
+                      senderId: ai?.id || aiId
+                    }),
+                    recipientUuid: b.uuid,
+                    translationUnavailable: b1.translationUnavailable
+                  });
+                  c.lastActivityAt = Date.now();
+                  sendSse(b.uuid, { type: 'conversation_update', conversation: publicConversation(c, b.uuid) });
 
-                  const b2TypeDuration = calculateTypingDuration(b2.text, reply.language);
-                  const tSend2 = setTimeout(() => {
-                    if (!conversations.has(c.id) || c.revealed) return;
-                    c.isPartnerTyping = false;
-                    c.messages.push({
-                      ...makeLocalizedMessage({
-                        originalText: b2.text,
-                        sourceLanguage: reply.language,
-                        translatedText: b2.translatedText,
-                        targetLanguage: sender.language,
-                        senderId: ai.id
-                      }),
-                      recipientUuid: b.uuid,
-                      translationUnavailable: b2.translationUnavailable
-                    });
-                    c.lastActivityAt = Date.now();
-                    sendSse(b.uuid, { type: 'conversation_update', conversation: publicConversation(c, b.uuid) });
-                  }, b2TypeDuration);
-                  addConversationTimer(c.id, tSend2);
-                }, pauseBetween);
-                addConversationTimer(c.id, tPause);
-              }
-            }, b1TypeDuration);
-            addConversationTimer(c.id, tSend1);
+                  // If there is a second bubble (Double-texting)
+                  if (preparedBubbles.length > 1) {
+                    const b2 = preparedBubbles[1];
+                    const pauseBetween = 800 + Math.random() * 600;
+
+                    const tPause = setTimeout(() => {
+                      try {
+                        if (!conversations.has(c.id) || c.revealed) return;
+                        c.isPartnerTyping = true;
+                        sendSse(b.uuid, { type: 'partner_typing', conversationId: c.id, typing: true });
+
+                        const b2TypeDuration = calculateTypingDuration(b2.text, reply.language);
+                        const tSend2 = setTimeout(() => {
+                          try {
+                            if (!conversations.has(c.id) || c.revealed) return;
+                            c.isPartnerTyping = false;
+                            c.messages.push({
+                              ...makeLocalizedMessage({
+                                originalText: b2.text,
+                                sourceLanguage: reply.language,
+                                translatedText: b2.translatedText,
+                                targetLanguage: sender.language,
+                                senderId: ai?.id || aiId
+                              }),
+                              recipientUuid: b.uuid,
+                              translationUnavailable: b2.translationUnavailable
+                            });
+                            c.lastActivityAt = Date.now();
+                            sendSse(b.uuid, { type: 'conversation_update', conversation: publicConversation(c, b.uuid) });
+                          } catch (err) {
+                            console.warn('[tSend2 error]', err);
+                          }
+                        }, b2TypeDuration);
+                        addConversationTimer(c.id, tSend2);
+                      } catch (err) {
+                        console.warn('[tPause error]', err);
+                      }
+                    }, pauseBetween);
+                    addConversationTimer(c.id, tPause);
+                  }
+                } catch (err) {
+                  console.warn('[tSend1 error]', err);
+                }
+              }, b1TypeDuration);
+              addConversationTimer(c.id, tSend1);
+            } catch (err) {
+              console.warn('[tTyping1 error]', err);
+            }
           }, initialReadWait);
           addConversationTimer(c.id, tTyping1);
         })().catch(err => {
@@ -671,7 +694,7 @@ setInterval(async ()=>{
         sourceLanguage: icebreaker.language,
         translatedText: tr.translated ? tr.text : null,
         targetLanguage: human.language,
-        senderId: ai.id
+        senderId: ai?.id || 'ai_unknown'
       }),
       recipientUuid: human.uuid,
       translationUnavailable: Boolean(tr.unavailable)
@@ -680,7 +703,7 @@ setInterval(async ()=>{
     const c = {
       id,
       initiatorUuid: null,
-      initiatorPublicId: ai.id,
+      initiatorPublicId: ai?.id || 'ai_unknown',
       initiatorType: 'ai',
       targetPublicId: human.publicId,
       targetUuid: human.uuid,
@@ -694,11 +717,13 @@ setInterval(async ()=>{
       lastActivityAt: now
     };
     // Face each other on proactive encounter
-    const pdx = human.x - ai.x;
-    const pdz = human.z - ai.z;
-    if (Math.hypot(pdx, pdz) > 0.1) {
-      ai.rotation = Math.atan2(pdx, pdz);
-      human.rotation = Math.atan2(-pdx, -pdz);
+    if (ai && human) {
+      const pdx = human.x - ai.x;
+      const pdz = human.z - ai.z;
+      if (Math.hypot(pdx, pdz) > 0.1) {
+        ai.rotation = Math.atan2(pdx, pdz);
+        human.rotation = Math.atan2(-pdx, -pdz);
+      }
     }
     c.participantSnapshots = {
       initiator: sanitizeTarget(ai),
@@ -713,20 +738,28 @@ setInterval(async ()=>{
     const typeDuration = calculateTypingDuration(icebreaker.text, icebreaker.language);
 
     const t1 = setTimeout(() => {
-      const liveC = conversations.get(id);
-      if (!liveC || liveC.revealed) return;
-      liveC.isPartnerTyping = true;
-      sendSse(human.uuid, { type: 'partner_typing', conversationId: id, typing: true });
+      try {
+        const liveC = conversations.get(id);
+        if (!liveC || liveC.revealed) return;
+        liveC.isPartnerTyping = true;
+        sendSse(human.uuid, { type: 'partner_typing', conversationId: id, typing: true });
 
-      const t2 = setTimeout(() => {
-        const liveC2 = conversations.get(id);
-        if (!liveC2 || liveC2.revealed) return;
-        liveC2.messages.push(firstMsg);
-        liveC2.roundsUsed = 1;
-        liveC2.isPartnerTyping = false;
-        sendSse(human.uuid, { type: 'conversation_update', conversation: publicConversation(liveC2, human.uuid) });
-      }, typeDuration);
-      addConversationTimer(id, t2);
+        const t2 = setTimeout(() => {
+          try {
+            const liveC2 = conversations.get(id);
+            if (!liveC2 || liveC2.revealed) return;
+            liveC2.messages.push(firstMsg);
+            liveC2.roundsUsed = 1;
+            liveC2.isPartnerTyping = false;
+            sendSse(human.uuid, { type: 'conversation_update', conversation: publicConversation(liveC2, human.uuid) });
+          } catch (err) {
+            console.warn('[proactive t2 error]', err);
+          }
+        }, typeDuration);
+        addConversationTimer(id, t2);
+      } catch (err) {
+        console.warn('[proactive t1 error]', err);
+      }
     }, pauseBeforeTyping);
     addConversationTimer(id, t1);
     break;
