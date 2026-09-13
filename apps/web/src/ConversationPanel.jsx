@@ -135,7 +135,14 @@ export default function ConversationPanel({uuid,language='zh',conversation,partn
     <div className="conv-head">
       <div>
         <span className={`status-dot ${partnerTyping ? 'typing' : isWaitingForReply ? 'waiting' : ''}`}></span>
-        <b>{conversation.other.displayName}</b>
+        <div style={{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
+          <b>{conversation.other.displayName}</b>
+          {nickname && (
+            <span className="conv-self-badge">
+              {nickname} ({t('youBadge', language)})
+            </span>
+          )}
+        </div>
         <small>
           {partnerTyping ? (
             <span className="partner-typing-indicator">{t('partnerTyping', language)}</span>

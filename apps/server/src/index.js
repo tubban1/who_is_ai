@@ -202,13 +202,14 @@ const server=http.createServer(async(req,res)=>{
       if(!isUuid(b.uuid)) return json(res,400,{error:'invalid uuid'});
       const displayName=String(b.displayName||`Guest-${b.uuid.slice(0,4)}`).slice(0,24);
       const language=String(b.language||'en').slice(0,12);
+      const gender=String(b.gender||'male').slice(0,10);
       const player=await upsertPlayer({uuid:b.uuid,displayName,preferredLanguage:language});
       let h=humans.get(b.uuid);
       if(!h){
         const publicId=`h_${crypto.randomBytes(4).toString('hex')}`;
-        h={id:publicId,publicId,uuid:b.uuid,displayName,x:(Math.random()-.5)*10,z:(Math.random()-.5)*10,rotation:0,status:'available',language,lastSeen:Date.now(),type:'human'};
+        h={id:publicId,publicId,uuid:b.uuid,displayName,gender,x:(Math.random()-.5)*10,z:(Math.random()-.5)*10,rotation:0,status:'available',language,lastSeen:Date.now(),type:'human'};
         humans.set(b.uuid,h); publicToUuid.set(publicId,b.uuid);
-      } else { h.displayName=displayName;h.language=language;h.lastSeen=Date.now();h.status='available'; }
+      } else { h.displayName=displayName;h.language=language;h.gender=gender;h.lastSeen=Date.now();h.status='available'; }
       return json(res,200,{player,publicId:h.publicId});
     }
 

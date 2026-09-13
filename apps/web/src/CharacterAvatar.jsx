@@ -98,8 +98,16 @@ export const ARCHETYPES = {
 /**
  * 严格按照男女 1:1 (50% : 50%) 比例均衡分配市民形象，女性具备 4 大风格造型
  */
-export function getCharacterArchetype(id, displayName, isPlayer) {
-  if (isPlayer) return ARCHETYPES.TRENCH;
+export function getCharacterArchetype(id, displayName, isPlayer, gender = null, archetypeKey = null) {
+  if (isPlayer) {
+    if (archetypeKey && ARCHETYPES[archetypeKey]) {
+      return ARCHETYPES[archetypeKey];
+    }
+    if (gender === 'female' || gender === 'feminine') {
+      return ARCHETYPES.PLEATED_SKIRT;
+    }
+    return ARCHETYPES.TRENCH;
+  }
 
   const maleList = [ARCHETYPES.TRENCH, ARCHETYPES.SKATER];
   const femaleList = [ARCHETYPES.PLEATED_SKIRT, ARCHETYPES.WRAP_DRESS, ARCHETYPES.OFFICE, ARCHETYPES.MODERN_LADY];
@@ -412,6 +420,8 @@ export default function CharacterAvatar({
   rotation = [0, 0, 0],
   displayName = 'Guest',
   id = 'guest',
+  gender = null,
+  archetypeKey = null,
   isPlayer = false,
   isNear = false,
   isTalking = false,
@@ -420,8 +430,8 @@ export default function CharacterAvatar({
   hideBadge = false,
 }) {
   const archetype = useMemo(() => {
-    return getCharacterArchetype(id, displayName, isPlayer);
-  }, [id, displayName, isPlayer]);
+    return getCharacterArchetype(id, displayName, isPlayer, gender, archetypeKey);
+  }, [id, displayName, isPlayer, gender, archetypeKey]);
 
   const palette = useMemo(() => {
     const arch = archetype || ARCHETYPES.TRENCH;
@@ -475,21 +485,40 @@ export default function CharacterAvatar({
           <div
             style={{
               whiteSpace: 'nowrap',
-              padding: '4px 9px',
-              borderRadius: '6px',
+              padding: isPlayer ? '5px 12px' : '4px 9px',
+              borderRadius: '8px',
               fontSize: '11px',
               fontWeight: 500,
-              color: isPlayer ? '#b5d5e4' : '#eee9df',
-              background: 'rgba(18, 23, 27, 0.82)',
-              border: `1px solid ${isNear ? '#bba477' : 'rgba(255, 255, 255, 0.16)'}`,
-              boxShadow: isNear ? '0 0 10px rgba(226, 194, 143, 0.35)' : 'none',
+              color: isPlayer ? '#75f2da' : '#eee9df',
+              background: isPlayer ? 'rgba(7, 24, 38, 0.92)' : 'rgba(18, 23, 27, 0.82)',
+              border: `1px solid ${isPlayer ? '#75f2da' : (isNear ? '#bba477' : 'rgba(255, 255, 255, 0.16)')}`,
+              boxShadow: isPlayer ? '0 0 16px rgba(117, 242, 218, 0.5)' : (isNear ? '0 0 10px rgba(226, 194, 143, 0.35)' : 'none'),
               userSelect: 'none',
-              backdropFilter: 'blur(4px)',
+              backdropFilter: 'blur(6px)',
               textAlign: 'center',
             }}
           >
-            <div>{displayName}</div>
-            <div style={{ fontSize: '9px', opacity: 0.65, marginTop: '1px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+              <span style={{ fontWeight: isPlayer ? 700 : 500, fontSize: isPlayer ? '12px' : '11px' }}>
+                {displayName}
+              </span>
+              {isPlayer && (
+                <span
+                  style={{
+                    fontSize: '9px',
+                    padding: '1px 5px',
+                    borderRadius: '4px',
+                    background: 'rgba(117, 242, 218, 0.25)',
+                    color: '#75f2da',
+                    fontWeight: 700,
+                    letterSpacing: '0.05em'
+                  }}
+                >
+                  {gender === 'female' ? '👩 你' : '👨 你'}
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: '9px', opacity: isPlayer ? 0.85 : 0.65, marginTop: '2px', color: isPlayer ? '#a5f3fc' : 'inherit' }}>
               {archetype.title}
             </div>
           </div>

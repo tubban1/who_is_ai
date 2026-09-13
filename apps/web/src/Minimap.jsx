@@ -233,7 +233,7 @@ export const LANDMARKS = [
 
 import { t, getLocalizedLandmark } from './i18n.js';
 
-export default function Minimap({ playerPos, playerRotation = 0, strangers = [], language = 'zh' }) {
+export default function Minimap({ playerPos, playerRotation = 0, strangers = [], language = 'zh', nickname = '', gender = 'male' }) {
   const [collapsed, setCollapsed] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 700));
   const [activeCategory, setActiveCategory] = useState('all'); // all | pudong | bund | boat
   const [hoveredLandmark, setHoveredLandmark] = useState(null);
@@ -510,7 +510,7 @@ export default function Minimap({ playerPos, playerRotation = 0, strangers = [],
                 </g>
                 <circle cx="0" cy="0" r="4.2" fill="#38bdf8" stroke="#ffffff" strokeWidth="1.4" />
                 <text x="0" y="11" textAnchor="middle" fill="#38bdf8" fontSize="6.5" fontWeight="800">
-                  {t('youMap', language)}
+                  {nickname ? `${nickname.length > 5 ? nickname.slice(0, 4) + '…' : nickname} (${t('youMap', language)})` : t('youMap', language)}
                 </text>
               </g>
             </svg>

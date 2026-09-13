@@ -89,7 +89,52 @@ export const LANGUAGE_NAME_POOLS = {
   ]
 };
 
-export function getRandomName(lang = 'zh') {
+export const GENDER_SPECIFIC_NAMES = {
+  zh: {
+    female: [
+      '宋欣怡', '陈雨欣', '若汐', '沈清秋', '苏小言', '白露', '唐悠悠', '林小满',
+      '小橙子', '奶茶半糖', '芋泥波波', '草莓大福', '半熟芝士', '偷吃彩虹', '森林小鹿',
+      '橘子汽水味', '小熊软糖', '雨后晴天', '晚风踩着云', '西瓜不吐籽', '失眠飞行', '月亮邮递员'
+    ],
+    male: [
+      '晨曦', '江晓风', '沐辰', '陆浩然', '阿泽', '张宇轩', '李子墨', '顾北辰',
+      '楚天阔', '程逸飞', '周子涵', '何以琛', '晴天小狗', '风吹麦浪', '落日飞车',
+      '星河漫步', '清风徐来', '摸鱼艺术家', '可乐加冰', '银河漫游指南', '宇宙流浪猫'
+    ]
+  },
+  en: {
+    female: [
+      'Charlotte', 'Emma Wright', 'Chloe', 'Sophie_K', 'Mia', 'Zoe', 'Grace',
+      'Harper', 'Luna', 'Ava Martinez', 'Riley', 'Evelyn', 'Maya_S', 'Ella_Rose',
+      'Lily_Walker', 'Sienna', 'Stella_B', 'Penelope', 'Victoria_C', 'VelvetThunder'
+    ],
+    male: [
+      'Oliver', 'Liam', 'Lucas_M', 'Sammy', 'Daniel', 'Alex', 'James', 'Ethan',
+      'Noah', 'Benjamin', 'Leo', 'Mason Reed', 'Jack_D', 'Aiden', 'Logan', 'Max_Miller',
+      'Dylan_99', 'Jacob_Vibe', 'Hunter_K', 'Carter', 'Wyatt_Z', 'Julian_Fox'
+    ]
+  },
+  ja: {
+    female: [
+      '陽菜 (Hina)', '葵 (Aoi)', '結衣 (Yui)', 'さくら', '美咲', 'ハルカ', '楓 (Kaede)',
+      'みかん大福', 'ふわり雲', 'ミルクティー', 'ねこまんま', 'ミント'
+    ],
+    male: [
+      '蓮 (Ren)', '翔太 (Shota)', '大和', '海斗', 'ソラ', '拓海', '悠真', 'リク',
+      'たこやき星人', '夜更かしペンギン', '星空ドライブ'
+    ]
+  }
+};
+
+export function getRandomName(lang = 'zh', gender = null) {
+  if (gender && GENDER_SPECIFIC_NAMES[lang]?.[gender]) {
+    // 75% 概率匹配性别定制好名，25% 泛用网名趣味池
+    if (Math.random() < 0.75) {
+      const gPool = GENDER_SPECIFIC_NAMES[lang][gender];
+      return gPool[Math.floor(Math.random() * gPool.length)];
+    }
+  }
   const pool = LANGUAGE_NAME_POOLS[lang] || LANGUAGE_NAME_POOLS.zh;
   return pool[Math.floor(Math.random() * pool.length)];
 }
+

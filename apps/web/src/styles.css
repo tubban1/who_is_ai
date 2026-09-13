@@ -837,3 +837,152 @@
     box-shadow: 0 0 22px rgba(117, 242, 218, 0.45);
   }
 }
+
+/* ==================== GENDER SELECTION & PLAYER PROFILE HUD ==================== */
+.gender-select-block {
+  margin: 14px 0 10px;
+  text-align: left;
+}
+
+.gender-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #9fb0c8;
+  margin-bottom: 8px;
+}
+
+.gender-hint {
+  font-size: 11px;
+  color: #75f2da;
+  font-weight: 500;
+}
+
+.gender-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.gender-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(6, 16, 29, 0.85);
+  border: 1.5px solid rgba(49, 67, 91, 0.65);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+}
+
+.gender-btn:hover {
+  border-color: rgba(117, 242, 218, 0.4);
+  background: rgba(12, 28, 48, 0.9);
+  transform: translateY(-1px);
+}
+
+.gender-btn.active {
+  background: linear-gradient(135deg, rgba(14, 45, 55, 0.95), rgba(8, 24, 38, 0.95));
+  border-color: #75f2da;
+  color: #ffffff;
+  box-shadow: 0 0 18px rgba(117, 242, 218, 0.3), inset 0 0 12px rgba(117, 242, 218, 0.12);
+}
+
+.gender-icon {
+  font-size: 22px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+.gender-btn-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.gender-btn-text strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: #edf4ff;
+}
+
+.gender-btn.active .gender-btn-text strong {
+  color: #75f2da;
+}
+
+.gender-btn-text small {
+  font-size: 10px;
+  color: #94a3b8;
+  margin-top: 1px;
+}
+
+.gender-btn.active .gender-btn-text small {
+  color: #a5f3fc;
+}
+
+/* In-Game HUD: Player Name & Avatar Badge */
+.hud-player-badge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: rgba(117, 242, 218, 0.12);
+  border: 1px solid rgba(117, 242, 218, 0.35);
+  box-shadow: 0 0 12px rgba(117, 242, 218, 0.18);
+  color: #edf4ff;
+  max-width: 170px;
+  user-select: none;
+  transition: border-color 0.2s;
+}
+
+.hud-player-badge:hover {
+  border-color: #75f2da;
+  box-shadow: 0 0 16px rgba(117, 242, 218, 0.35);
+}
+
+.hud-player-avatar {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.hud-player-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #edf4ff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.02em;
+}
+
+.conv-self-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #75f2da;
+  background: rgba(117, 242, 218, 0.15);
+  border: 1px solid rgba(117, 242, 218, 0.3);
+  padding: 2px 7px;
+  border-radius: 999px;
+  letter-spacing: 0.03em;
+}
+
+@media (max-width: 768px) {
+  .hud-player-badge {
+    padding: 3px 8px;
+    max-width: 105px;
+    gap: 5px;
+  }
+  .hud-player-avatar {
+    font-size: 13px;
+  }
+  .hud-player-name {
+    font-size: 10.5px;
+  }
+}
+

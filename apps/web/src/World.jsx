@@ -83,7 +83,7 @@ function Avatar({ p, near, conversationOpen, isTalking }) {
 import { t } from './i18n.js';
 import { playSfx } from './audio.js';
 
-function LocalPlayer({strangers,onNearest,onMoved,conversationOpen,language='zh',touchInput=null,conversation=null,uuid=null}){
+function LocalPlayer({strangers,onNearest,onMoved,conversationOpen,language='zh',touchInput=null,conversation=null,uuid=null,nickname='',player=null,gender='male',archetypeKey=null}){
   const ref=useRef();
   const keys=useRef({});
   const {camera}=useThree();
@@ -240,7 +240,9 @@ function LocalPlayer({strangers,onNearest,onMoved,conversationOpen,language='zh'
       <CharacterAvatar
         position={[0, 0, 0]}
         id="player_local"
-        displayName={t('youAvatar', language)}
+        displayName={nickname || player?.displayName || t('youAvatar', language)}
+        gender={gender}
+        archetypeKey={archetypeKey}
         isPlayer={true}
         moving={moving}
         isTalking={conversationOpen}
@@ -250,7 +252,7 @@ function LocalPlayer({strangers,onNearest,onMoved,conversationOpen,language='zh'
   );
 }
 
-export default function World({strangers,onNearest,onPlayerMoved,conversationOpen,language='zh',touchInput=null,timeOfDay='night',conversation=null,uuid=null}){
+export default function World({strangers,onNearest,onPlayerMoved,conversationOpen,language='zh',touchInput=null,timeOfDay='night',conversation=null,uuid=null,nickname='',player=null,gender='male',archetypeKey=null}){
   const [nearestId, setNearestId] = React.useState(null);
   const handleNearest = React.useCallback((n) => {
     setNearestId(n?.id || null);
@@ -283,6 +285,19 @@ export default function World({strangers,onNearest,onPlayerMoved,conversationOpe
       );
     })}
     {/* Local Controllable Player */}
-    <LocalPlayer strangers={strangers} onNearest={handleNearest} onMoved={onPlayerMoved} conversationOpen={conversationOpen} conversation={conversation} uuid={uuid} language={language} touchInput={touchInput}/>
+    <LocalPlayer
+      strangers={strangers}
+      onNearest={handleNearest}
+      onMoved={onPlayerMoved}
+      conversationOpen={conversationOpen}
+      conversation={conversation}
+      uuid={uuid}
+      language={language}
+      touchInput={touchInput}
+      nickname={nickname}
+      player={player}
+      gender={gender}
+      archetypeKey={archetypeKey}
+    />
   </>;
 }

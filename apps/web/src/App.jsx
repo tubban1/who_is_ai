@@ -26,12 +26,33 @@ export default function App(){
   const atmosphere = ATMOSPHERES[timeOfDay];
   const initialLang = localStorage.getItem('who-is-ai.lang') || ((navigator.language || 'zh').split('-')[0]);
   const [language,setLanguage]=useState(initialLang);
+  const initialGender = localStorage.getItem('who-is-ai.gender') || 'male';
+  const [gender, setGender] = useState(initialGender);
+  const initialArchetype = localStorage.getItem('who-is-ai.archetype') || (initialGender === 'female' ? 'PLEATED_SKIRT' : 'TRENCH');
+  const [archetypeKey, setArchetypeKey] = useState(initialArchetype);
+
   const [nickname,setNickname]=useState(() => {
     const saved = localStorage.getItem('who-is-ai.name');
     if (saved && !saved.startsWith('Guest-') && !saved.startsWith('访客-')) return saved;
-    const generated = getRandomName(initialLang);
+    const generated = getRandomName(initialLang, initialGender);
     return generated;
   });
+
+  const handleGenderSelect = (nextGender) => {
+    setGender(nextGender);
+    localStorage.setItem('who-is-ai.gender', nextGender);
+    const nextArch = nextGender === 'female' ? 'PLEATED_SKIRT' : 'TRENCH';
+    setArchetypeKey(nextArch);
+    localStorage.setItem('who-is-ai.archetype', nextArch);
+    // If the player hadn't customized a personal non-default nickname, switch to match new gender
+    setNickname(prev => {
+      const saved = localStorage.getItem('who-is-ai.name');
+      if (saved && !saved.startsWith('Guest-') && !saved.startsWith('访客-') && saved === prev) return prev;
+      return getRandomName(language, nextGender);
+    });
+    playSfx('click');
+  };
+
   const [player,setPlayer]=useState(null); const [world,setWorld]=useState({strangers:[]});
   const [nearest,setNearest]=useState(null); const [conversation,setConversation]=useState(null);
   const [leaderboardOpen,setLeaderboardOpen]=useState(false); const [feedbackOpen,setFeedbackOpen]=useState(false); const [error,setError]=useState('');
@@ -87,9 +108,12 @@ export default function App(){
   const enter=async()=>{
     setError('');
     try{
-      const name=(nickname.trim()||getRandomName(language)).slice(0,24);
-      localStorage.setItem('who-is-ai.name',name);localStorage.setItem('who-is-ai.lang',language);
-      const s=await post('/api/session',{uuid,displayName:name,language});
+      const name=(nickname.trim()||getRandomName(language, gender)).slice(0,24);
+      localStorage.setItem('who-is-ai.name',name);
+      localStorage.setItem('who-is-ai.lang',language);
+      localStorage.setItem('who-is-ai.gender',gender);
+      localStorage.setItem('who-is-ai.archetype',archetypeKey);
+      const s=await post('/api/session',{uuid,displayName:name,language,gender});
       setTimeOfDay(chooseTimeOfDay()); setPlayer(s.player); setStarted(true);
       setTimeout(()=>{
         const bgmPref = getStoredBgmPreference();
@@ -287,13 +311,45 @@ export default function App(){
         <b>{t('ruleWrong', language)}</b>
         <b>{t('ruleNotSure', language)}</b>
       </div>
+      {/* 角色形象与性别选择 */}
+      <div className="gender-select-block">
+        <div className="gender-label-row">
+          <span>{t('genderLabel', language)}</span>
+          <span className="gender-hint">{gender === 'female' ? t('femaleHint', language) : t('maleHint', language)}</span>
+        </div>
+        <div className="gender-buttons">
+          <button
+            type="button"
+            className={`gender-btn ${gender === 'male' ? 'active' : ''}`}
+            onClick={() => handleGenderSelect('male')}
+          >
+            <span className="gender-icon">🚹</span>
+            <div className="gender-btn-text">
+              <strong>{t('genderMale', language)}</strong>
+              <small>{t('styleTrench', language)}</small>
+            </div>
+          </button>
+          <button
+            type="button"
+            className={`gender-btn ${gender === 'female' ? 'active' : ''}`}
+            onClick={() => handleGenderSelect('female')}
+          >
+            <span className="gender-icon">🚺</span>
+            <div className="gender-btn-text">
+              <strong>{t('genderFemale', language)}</strong>
+              <small>{t('styleSkirt', language)}</small>
+            </div>
+          </button>
+        </div>
+      </div>
+
       <label>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <span>{t('nicknameLabel', language)}</span>
           <button 
             type="button" 
             style={{background:'none',border:'none',color:'#75f2da',fontSize:'11px',cursor:'pointer',padding:0}}
-            onClick={()=>setNickname(getRandomName(language))}
+            onClick={()=>setNickname(getRandomName(language, gender))}
           >
             🎲 {language === 'zh' ? '随机昵称' : 'Randomize'}
           </button>
@@ -302,7 +358,7 @@ export default function App(){
           value={nickname}
           onChange={e=>setNickname(e.target.value)}
           maxLength={24}
-          placeholder={getRandomName(language)}
+          placeholder={getRandomName(language, gender)}
         />
       </label>
       <label>
@@ -315,7 +371,7 @@ export default function App(){
           setNickname(prev => {
             const saved = localStorage.getItem('who-is-ai.name');
             if (saved && !saved.startsWith('Guest-') && !saved.startsWith('访客-') && saved === prev) return prev;
-            return getRandomName(nextLang);
+            return getRandomName(nextLang, gender);
           });
         }}>
           {LANGS.map(([v,n])=><option value={v} key={v}>{n}</option>)}
@@ -351,11 +407,22 @@ export default function App(){
         uuid={uuid}
         language={language}
         touchInput={touchInput}
+        nickname={nickname}
+        player={player}
+        gender={gender}
+        archetypeKey={archetypeKey}
       />
     </Canvas>
 
     <header className="hud-top glass">
-      <div><b>WHO IS AI?</b><span>{t('liveWorld', language)}</span></div>
+      <div className="hud-brand">
+        <b>WHO IS AI?</b>
+        <span>{t('liveWorld', language)}</span>
+      </div>
+      <div className="hud-player-badge" title={nickname || player?.displayName}>
+        <span className="hud-player-avatar">{gender === 'female' ? '👩' : '👨'}</span>
+        <span className="hud-player-name">{nickname || player?.displayName}</span>
+      </div>
       <div className="score">{t('scoreLabel', language)} <strong>{player?.score??0}</strong></div>
     </header>
     <div className="top-actions">
@@ -417,7 +484,14 @@ export default function App(){
 
     {/* Minimap HUD (hidden during active conversation to keep screen clear) */}
     {!conversation && (
-      <Minimap playerPos={playerPos} playerRotation={playerPos?.rotation || 0} strangers={world.strangers || []} language={language}/>
+      <Minimap
+        playerPos={playerPos}
+        playerRotation={playerPos?.rotation || 0}
+        strangers={world.strangers || []}
+        language={language}
+        nickname={nickname}
+        gender={gender}
+      />
     )}
     {nearest&&!conversation&&<div className="interaction">
       <span>E</span>
