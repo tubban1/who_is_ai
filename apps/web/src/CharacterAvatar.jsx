@@ -486,8 +486,14 @@ export default function CharacterAvatar({
   );
 }
 
-// 轻量骨骼动画预加载（几十 KB，确保动作就绪无抖动）
-// 角色大型网格模型（几 MB）采用渐进式按需加载与 <LoadingSilhouette /> 占位，避免首屏瞬间打爆网络带宽
+// 预加载所有角色网格与动画，确保进入场景后角色 100% 渲染呈现，避免出现黑屏或空白
+useGLTF.preload(MODEL_MALE_1_URL);
+useGLTF.preload(MODEL_MALE_2_URL);
+useGLTF.preload(MODEL_FEMALE_SKIRT_URL);
+useGLTF.preload(MODEL_FEMALE_WRAP_URL);
+useGLTF.preload(MODEL_FEMALE_OFFICE_URL);
+useGLTF.preload(MODEL_FEMALE_CASUAL_URL);
+
 useGLTF.preload(M_IDLE_URL);
 useGLTF.preload(M_WALK_URL);
 useGLTF.preload(M_TALK_URL);
