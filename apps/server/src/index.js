@@ -138,6 +138,11 @@ function publicConversation(c,forUuid){
   const isTarget=c.targetUuid===forUuid;
   const otherId=isInitiator?c.targetPublicId:c.initiatorPublicId;
   const other=runtimeByPublicId(otherId);
+  // The AI can be recycled immediately after a verdict. Keep the participant
+  // snapshot so an open result panel still describes the person just met.
+  const participantSnapshot = isInitiator
+    ? c.participantSnapshots?.target
+    : c.participantSnapshots?.initiator;
   const alreadyJudged=Boolean(c.alreadyJudged);
   const canGuess = !alreadyJudged && !c.revealed && (isInitiator || (c.initiatorType === 'ai' && isTarget));
   
@@ -153,7 +158,8 @@ function publicConversation(c,forUuid){
   }
 
   return {
-    id:c.id, other:other?sanitizeTarget(other):{id:otherId,displayName:'Stranger'},
+    id:c.id,
+    other:other ? sanitizeTarget(other) : (participantSnapshot || {id:otherId,displayName:'Stranger'}),
     roundsUsed:c.roundsUsed,maxRounds:MAX_ROUNDS,revealed:c.revealed,
     result:c.revealed?c.result:null,
     canGuess,
@@ -275,6 +281,10 @@ const server=http.createServer(async(req,res)=>{
         targetPublicId:target.id,
         targetUuid,
         targetType:target.type,
+        participantSnapshots: {
+          initiator: sanitizeTarget(me),
+          target: sanitizeTarget(target)
+        },
         roundsUsed:0,
         revealed:false,
         alreadyJudged,
@@ -542,7 +552,23 @@ const server=http.createServer(async(req,res)=>{
       if(filePath) {
         try {
           const data=await fs.readFile(filePath);
+          const stat=await fs.stat(filePath);
           const ext=path.extname(filePath);
+          const basename=path.basename(filePath);
+          const immutableBundle=/^.+-[A-Za-z0-9]{8,}\.(?:js|css)$/.test(basename);
+          const cacheControl=ext==='.html'
+            ? 'no-cache'
+            : (immutableBundle ? 'public, max-age=31536000, immutable' : 'no-cache');
+          // Size + modification time gives the browser a cheap validator for
+          // large GLBs, so revalidation avoids retransferring unchanged models.
+          const etag=`W/"${data.length.toString(16)}-${Math.trunc(stat.mtimeMs).toString(16)}"`;
+          const lastModified=stat.mtime.toUTCString();
+          const ifNoneMatch=req.headers['if-none-match'];
+          const matchesEtag=ifNoneMatch && (ifNoneMatch==='*' || ifNoneMatch.split(',').some(value=>value.trim()===etag));
+          if(matchesEtag || (!ifNoneMatch && req.headers['if-modified-since'] && stat.mtime.getTime() <= Date.parse(req.headers['if-modified-since']) + 999)) {
+            res.writeHead(304,{'Cache-Control':cacheControl,'ETag':etag,'Last-Modified':lastModified});
+            return res.end();
+          }
           const mime={
             '.html':'text/html; charset=utf-8',
             '.js':'text/javascript; charset=utf-8',
@@ -560,7 +586,11 @@ const server=http.createServer(async(req,res)=>{
           res.writeHead(200,{
             'Content-Type':mime,
             'Content-Length':data.length,
-            'Cache-Control':ext==='.html' ? 'no-cache' : 'public, max-age=31536000, immutable'
+            'ETag':etag,
+            'Last-Modified':lastModified,
+            // Only content-hashed bundles are immutable. Fixed-name models and
+            // textures must revalidate so a deployment can replace an asset.
+            'Cache-Control':cacheControl
           });
           return req.method === 'HEAD' ? res.end() : res.end(data);
         } catch {}
@@ -670,6 +700,10 @@ setInterval(async ()=>{
       ai.rotation = Math.atan2(pdx, pdz);
       human.rotation = Math.atan2(-pdx, -pdz);
     }
+    c.participantSnapshots = {
+      initiator: sanitizeTarget(ai),
+      target: sanitizeTarget(human)
+    };
     conversations.set(id, c);
     // Send empty conversation with natural pause before typing
     sendSse(human.uuid, { type: 'incoming_conversation', conversation: publicConversation(c, human.uuid) });

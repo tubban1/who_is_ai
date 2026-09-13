@@ -76,7 +76,10 @@ export default function CityLightShow({
       pudongAntennas: [],
       backdropWindows: [],
       // Cruise ships
-      boats: []
+      boats: [],
+      // Materials that need a clean day/night transition.
+      allEmissive: [],
+      allSurfaces: []
     };
 
     obj.traverse((child) => {
@@ -84,13 +87,27 @@ export default function CityLightShow({
       child.castShadow = true;
       child.receiveShadow = true;
 
-      // Clone material so changes don't cross-contaminate
+      // Clone material so changes don't cross-contaminate. Keep the original
+      // emissive state on each clone so switching back from daytime can
+      // restore the GLB's authored values before the night animation resumes.
       if (child.material) {
-        child.material = child.material.clone();
-        if (/ground|floor|deck|promenade|plaza|asphalt|granite|pavement|stone/i.test(child.name || child.material.name)) {
-          child.material.roughness = (timeOfDay === 'day' ? 0.75 : 0.28);
-          child.material.metalness = (timeOfDay === 'day' ? 0.05 : 0.20);
-        }
+        const cloneMaterial = (source) => {
+          const material = source.clone();
+          if (material.emissive) {
+            groups.allEmissive.push({
+              material,
+              color: material.emissive.clone(),
+              intensity: material.emissiveIntensity ?? 1
+            });
+          }
+          if (/ground|floor|deck|promenade|plaza|asphalt|granite|pavement|stone/i.test(child.name || source.name)) {
+            groups.allSurfaces.push(material);
+          }
+          return material;
+        };
+        child.material = Array.isArray(child.material)
+          ? child.material.map(cloneMaterial)
+          : cloneMaterial(child.material);
       }
 
       const name = child.name;
@@ -142,6 +159,22 @@ export default function CityLightShow({
 
     return groups;
   }, [obj]);
+
+  useEffect(() => {
+    const isDay = timeOfDay === 'day';
+    lightGroups.allSurfaces.forEach(material => {
+      material.roughness = isDay ? 0.82 : 0.68;
+      material.metalness = 0.04;
+    });
+    lightGroups.allEmissive.forEach(({ material, color, intensity }) => {
+      if (isDay) {
+        material.emissiveIntensity = 0;
+      } else {
+        material.emissive.copy(color);
+        material.emissiveIntensity = intensity;
+      }
+    });
+  }, [lightGroups, timeOfDay]);
 
   useEffect(() => {
     console.log('[CityLightShow Groups]', JSON.stringify(Object.fromEntries(Object.entries(lightGroups).map(([k, v]) => [k, v.length]))));

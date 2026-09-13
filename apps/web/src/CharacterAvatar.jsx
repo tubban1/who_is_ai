@@ -104,10 +104,11 @@ export function getCharacterArchetype(id, displayName, isPlayer) {
   const maleList = [ARCHETYPES.TRENCH, ARCHETYPES.SKATER];
   const femaleList = [ARCHETYPES.PLEATED_SKIRT, ARCHETYPES.WRAP_DRESS, ARCHETYPES.OFFICE, ARCHETYPES.MODERN_LADY];
 
-  // 如果是服务器的 a_01, a_02 规律ID，按序号严格交替（奇数男，偶数女，精确 1:1 男女平衡）
-  const match = id && typeof id === 'string' ? id.match(/\d+/) : null;
+  // 只有初始的 a_01/a_02 序列 ID 才按序号分配。轮换后的 ID 也可能
+  // 含数字，不能再把它们误当成序列号（尤其是 0 会得到空数组项）。
+  const match = id && typeof id === 'string' ? id.match(/^a_(\d{2})$/) : null;
   if (match) {
-    const num = parseInt(match[0], 10);
+    const num = parseInt(match[1], 10);
     const isMale = (num % 2 === 1);
     if (isMale) {
       const maleIdx = Math.floor((num - 1) / 2) % maleList.length;
@@ -191,7 +192,9 @@ function SkinnedHumanMesh({ avatarGltf, idleGltf, walkGltf, talkGltf, archetype,
       if (!node.isMesh) return;
       node.castShadow = true;
       node.receiveShadow = true;
-      node.frustumCulled = false;
+      // Keep off-screen citizens out of the render pass. Their shared GLB
+      // geometry remains cached, while each cloned skeleton stays animated.
+      node.frustumCulled = true;
 
       if (node.morphTargetDictionary && node.morphTargetInfluences) {
         morphs.push(node);
@@ -221,6 +224,30 @@ function SkinnedHumanMesh({ avatarGltf, idleGltf, walkGltf, talkGltf, archetype,
 
     return { model: cloned, morphMeshes: morphs };
   }, [avatarGltf.scene, palette]);
+
+  // SkeletonUtils creates instance-owned materials and skeletons. Release
+  // those when an AI identity rotates out, while leaving shared GLB geometry
+  // and textures in drei's loader cache for the next citizen.
+  useEffect(() => {
+    return () => {
+      const disposedMaterials = new Set();
+      model.traverse(node => {
+        if (node.isMesh) {
+          const materials = Array.isArray(node.material) ? node.material : [node.material];
+          materials.forEach(material => {
+            if (material && !disposedMaterials.has(material)) {
+              disposedMaterials.add(material);
+              material.dispose();
+            }
+          });
+        }
+        if (node.isSkinnedMesh && node.skeleton?.boneTexture) {
+          node.skeleton.boneTexture.dispose();
+          node.skeleton.boneTexture = null;
+        }
+      });
+    };
+  }, [model]);
 
   const { actions } = useAnimations(clips, groupRef);
   const currentActionRef = useRef(null);

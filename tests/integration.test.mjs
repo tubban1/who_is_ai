@@ -26,6 +26,10 @@ test('real server: UUID persistence, proximity encounter, 5 rounds and reveal',a
   for(let i=0;i<5;i++){r=await post('/api/conversation/message',{uuid,conversationId:cid,text:`question ${i}`});assert.equal(r.status,200);assert.equal(r.data.conversation.roundsUsed,i+1)}
   r=await post('/api/conversation/message',{uuid,conversationId:cid,text:'sixth'});assert.equal(r.status,409);
   r=await post('/api/conversation/guess',{uuid,conversationId:cid,guess:'ai'});assert.equal(r.status,200);assert.equal(r.data.conversation.result.targetType,'ai');assert.equal(r.data.conversation.result.delta,1);assert.equal(r.data.player.score,1);
+  // The AI is recycled immediately, but the verdict must still identify the
+  // participant who was actually tested.
+  assert.equal(r.data.conversation.other.id,target.id);
+  assert.equal(r.data.conversation.other.displayName,target.displayName);
   const lb=await (await fetch(`${base}/api/leaderboard`)).json();assert.equal(lb.rows[0].displayName,'Tester');assert.equal(lb.rows[0].score,1);
 
   // AI agent is seamlessly recycled with a new identity so players can continuously encounter fresh personas
@@ -79,4 +83,6 @@ test('real server: UUID persistence, proximity encounter, 5 rounds and reveal',a
 
   const rootPage=await fetch(base+'/');assert.equal(rootPage.status,200);assert.match(await rootPage.text(),/WHO IS/);
   const asset=await fetch(base+'/assets/avatar.glb');assert.equal(asset.status,200);assert.ok((await asset.arrayBuffer()).byteLength>1000);
+  const assetHeaders=await fetch(base+'/assets/avatar.glb',{method:'HEAD'});assert.equal(assetHeaders.headers.get('cache-control'),'no-cache');assert.ok(assetHeaders.headers.get('etag'));
+  const unchangedAsset=await fetch(base+'/assets/avatar.glb',{headers:{'If-None-Match':assetHeaders.headers.get('etag')}});assert.equal(unchangedAsset.status,304);
 });

@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MAX_ROUNDS, GUESS, scoreGuess, canSendRound, sanitizeTarget, makeLocalizedMessage, sortLeaderboard } from '../packages/shared/src/rules.js';
+import { chooseTimeOfDay } from '../apps/web/src/atmosphere.js';
+
+test('entry atmosphere can select either day or night',()=>{
+  assert.equal(chooseTimeOfDay(()=>0.1),'day');
+  assert.equal(chooseTimeOfDay(()=>0.9),'night');
+});
 
 test('scoring follows +1/-1/0 exactly',()=>{
   assert.equal(scoreGuess(GUESS.AI,'ai'),1);
@@ -89,4 +95,3 @@ test('getTargetAiPopulation balances floor population with dynamic human ratio',
   assert.equal(getTargetAiPopulation(40), 36);
   assert.equal(getTargetAiPopulation(100), 36);
 });
-

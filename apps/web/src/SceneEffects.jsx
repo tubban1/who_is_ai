@@ -168,6 +168,9 @@ export default function SceneEffects({ timeOfDay, conversationOpen = false, focu
     const curAperture = MathUtils.damp(pipeline.bokeh.uniforms['aperture'].value, targetAperture, 5.5, dt);
     pipeline.bokeh.uniforms['aperture'].value = curAperture;
     pipeline.bokeh.uniforms['focus'].value = MathUtils.damp(pipeline.bokeh.uniforms['focus'].value, focusDistance, 6.0, dt);
+    // Keep the cinematic glow at night while preserving daylight surface
+    // detail when the conversation DOF composer is active.
+    pipeline.bloom.strength = MathUtils.damp(pipeline.bloom.strength, timeOfDay === 'night' ? 0.32 : 0.08, 4.5, dt);
     pipeline.bokeh.enabled = (curAperture > 0.0004);
 
     if (timeOfDay === 'night' || conversationOpen || pipeline.bokeh.enabled) {

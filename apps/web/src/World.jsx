@@ -160,6 +160,12 @@ function LocalPlayer({strangers,onNearest,onMoved,conversationOpen,language='zh'
         partner = nearestRef.current;
         lockedPartnerRef.current = partner.id;
       }
+      // A judged AI may already have rotated to a fresh public ID. The
+      // conversation carries the original position snapshot so the camera
+      // can finish the reveal shot without snapping back to the walk view.
+      if (!partner && Number.isFinite(conversation?.other?.x) && Number.isFinite(conversation?.other?.z)) {
+        partner = conversation.other;
+      }
 
       if (partner) {
         // Cinematic Portrait Camera: Lock firmly onto partner's face

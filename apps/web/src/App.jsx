@@ -21,7 +21,8 @@ import { getRandomName } from './names.js';
 
 export default function App(){
   const [started,setStarted]=useState(false); const [uuid]=useState(ensureUuid);
-  const [timeOfDay, setTimeOfDay] = useState('day');
+  // Pick once for this visit. The toggle can still change it after entering.
+  const [timeOfDay, setTimeOfDay] = useState(() => chooseTimeOfDay());
   const atmosphere = ATMOSPHERES[timeOfDay];
   const initialLang = localStorage.getItem('who-is-ai.lang') || ((navigator.language || 'zh').split('-')[0]);
   const [language,setLanguage]=useState(initialLang);
